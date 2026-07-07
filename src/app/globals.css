@@ -20,6 +20,8 @@
   --animate-fade-in-up: fade-in-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-scale-in: scale-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-draw-line: draw-line 2s ease-in-out forwards;
+  --animate-mithila-drift: mithila-drift 14s linear infinite;
+  --animate-border-pulse: border-pulse 4s ease-in-out infinite;
 }
 
 @keyframes fade-in-up {
@@ -47,6 +49,26 @@
 @keyframes draw-line {
   to {
     stroke-dashoffset: 0;
+  }
+}
+
+@keyframes mithila-drift {
+  from {
+    background-position: 0 0, 0 0;
+  }
+  to {
+    background-position: 96px 0, -48px 48px;
+  }
+}
+
+@keyframes border-pulse {
+  0%, 100% {
+    opacity: 0.28;
+    transform: scaleX(0.96);
+  }
+  50% {
+    opacity: 0.62;
+    transform: scaleX(1);
   }
 }
 
@@ -79,6 +101,22 @@ body {
   background-image: radial-gradient(var(--border) 0.5px, transparent 0.5px);
   background-size: 24px 24px;
   transition: background-color 0.5s ease, color 0.5s ease;
+}
+
+@media (pointer: fine) {
+  .custom-cursor-ready body,
+  .custom-cursor-ready a,
+  .custom-cursor-ready button,
+  .custom-cursor-ready .clickable {
+    cursor: none;
+  }
+
+  .custom-cursor-ready input,
+  .custom-cursor-ready textarea,
+  .custom-cursor-ready select,
+  .custom-cursor-ready [contenteditable='true'] {
+    cursor: auto;
+  }
 }
 
 /* Custom Heritage Scrollbar */
@@ -116,12 +154,36 @@ body {
   pointer-events: none;
 }
 
+.madhubani-border::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border: 1px solid color-mix(in oklch, var(--accent) 45%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease, inset 0.35s ease;
+}
+
+.madhubani-border:hover::after {
+  inset: 10px;
+  opacity: 1;
+}
+
 /* Glassmorphism with Heritage Feel */
 .glass-panel {
   background: var(--card);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
+}
+
+.glass-panel-hover {
+  transition: border-color 0.35s ease, box-shadow 0.35s ease, transform 0.35s ease;
+}
+
+.glass-panel-hover:hover {
+  border-color: color-mix(in oklch, var(--accent) 45%, var(--border));
+  box-shadow: 0 18px 48px color-mix(in oklch, var(--accent) 14%, transparent);
 }
 
 /* Traditional Hatching (Kachni Style Shading Effect) */
@@ -148,4 +210,145 @@ body {
 .btn-heritage:hover {
   background-color: transparent;
   color: var(--accent);
+}
+
+.heritage-cursor {
+  filter: drop-shadow(0 8px 18px color-mix(in oklch, var(--accent) 22%, transparent));
+  transform-origin: center;
+}
+
+.heritage-cursor__ring {
+  position: absolute;
+  inset: 0;
+  border: 1px solid color-mix(in oklch, var(--accent) 82%, var(--foreground));
+  border-radius: 999px 999px 999px 8px;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 42%, color-mix(in oklch, var(--accent) 12%, transparent) 43% 56%, transparent 57%),
+    repeating-linear-gradient(45deg, transparent 0 4px, color-mix(in oklch, var(--foreground) 14%, transparent) 4px 5px);
+  transform: rotate(-45deg);
+}
+
+.heritage-cursor__ring::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border: 1px solid color-mix(in oklch, var(--foreground) 42%, transparent);
+  border-radius: inherit;
+}
+
+.heritage-cursor__petal {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 9px;
+  border-radius: 999px 999px 2px 2px;
+  background: var(--color-madhubani-mustard);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--foreground) 28%, transparent);
+  transform-origin: center;
+}
+
+.heritage-cursor__petal--top {
+  transform: translate(-50%, -22px);
+}
+
+.heritage-cursor__petal--right {
+  transform: translate(17px, -50%) rotate(90deg);
+  background: var(--color-madhubani-terracotta);
+}
+
+.heritage-cursor__petal--bottom {
+  transform: translate(-50%, 13px) rotate(180deg);
+}
+
+.heritage-cursor__petal--left {
+  transform: translate(-22px, -50%) rotate(-90deg);
+  background: var(--color-madhubani-forest);
+}
+
+.heritage-cursor-dot {
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow:
+    0 0 0 3px color-mix(in oklch, var(--background) 75%, transparent),
+    0 0 0 5px color-mix(in oklch, var(--foreground) 18%, transparent);
+}
+
+.mithila-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.mithila-ambient::before {
+  content: '';
+  position: absolute;
+  inset: 8% -12%;
+  opacity: 0.18;
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0 20px, color-mix(in oklch, var(--accent) 50%, transparent) 20px 21px),
+    repeating-linear-gradient(135deg, transparent 0 14px, color-mix(in oklch, var(--foreground) 22%, transparent) 14px 15px);
+  background-size: 96px 96px, 48px 48px;
+  mask-image: radial-gradient(ellipse at 55% 35%, black 0 34%, transparent 72%);
+  animation: mithila-drift 18s linear infinite;
+}
+
+.mithila-ambient::after {
+  content: '';
+  position: absolute;
+  left: max(24px, 5vw);
+  right: max(24px, 5vw);
+  bottom: clamp(16px, 5vh, 56px);
+  height: 2px;
+  border-top: 1px solid color-mix(in oklch, var(--accent) 54%, transparent);
+  border-bottom: 1px solid color-mix(in oklch, var(--foreground) 22%, transparent);
+  animation: border-pulse 4.5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.mithila-symbol {
+  position: absolute;
+  border: 1px solid color-mix(in oklch, var(--accent) 55%, transparent);
+  border-radius: 999px 999px 999px 8px;
+  opacity: 0.3;
+  transform: rotate(-45deg);
+}
+
+.mithila-symbol--large {
+  width: clamp(120px, 18vw, 260px);
+  height: clamp(120px, 18vw, 260px);
+  right: clamp(18px, 8vw, 120px);
+  top: clamp(80px, 18vh, 180px);
+}
+
+.mithila-symbol--small {
+  width: clamp(72px, 10vw, 140px);
+  height: clamp(72px, 10vw, 140px);
+  left: clamp(18px, 7vw, 96px);
+  bottom: clamp(72px, 14vh, 140px);
+  border-color: color-mix(in oklch, var(--color-madhubani-forest) 55%, transparent);
+}
+
+.mithila-symbol::before {
+  content: '';
+  position: absolute;
+  inset: 16%;
+  border: 1px solid color-mix(in oklch, var(--foreground) 25%, transparent);
+  border-radius: inherit;
+}
+
+.mithila-symbol::after {
+  content: '';
+  position: absolute;
+  inset: 38%;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--color-madhubani-mustard) 42%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mithila-ambient::before,
+  .mithila-ambient::after {
+    animation: none;
+  }
 }

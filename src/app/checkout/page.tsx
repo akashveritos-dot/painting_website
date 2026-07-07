@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { 
   ArrowLeft, 
@@ -11,7 +9,6 @@ import {
   ShieldCheck, 
   CreditCard, 
   Truck, 
-  Sparkles, 
   CheckCircle2, 
   Award, 
   Printer 
@@ -19,9 +16,17 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function CheckoutPage() {
-  const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const { cart, clearCart } = useAppStore();
+  const { user, cart, clearCart } = useAppStore();
+  const [savedAddresses, setSavedAddresses] = useState<Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+  }>>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState('');
 
   // Form State
   const [name, setName] = useState('');
@@ -42,16 +47,13 @@ export default function CheckoutPage() {
   const [generatedTracking, setGeneratedTracking] = useState('');
 
   useEffect(() => {
-    setMounted(true);
+    fetch('/api/addresses')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.addresses) setSavedAddresses(data.addresses);
+      })
+      .catch((error) => console.error('Failed to load saved addresses:', error));
   }, []);
-
-  if (!mounted) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <span className="h-8 w-8 animate-spin rounded-full border-4 border-madhubani-terracotta border-t-transparent" />
-      </div>
-    );
-  }
 
   // Calculations
   const subtotal = cart.reduce((acc, item) => {
@@ -62,28 +64,72 @@ export default function CheckoutPage() {
   const shipping = subtotal > 250 ? 0.00 : 20.00;
   const total = subtotal + tax + shipping;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const applySavedAddress = (addressId: string) => {
+    setSelectedAddressId(addressId);
+    const saved = savedAddresses.find((item) => item.id === addressId);
+    if (!saved) return;
+
+    setName(saved.fullName);
+    setEmail(saved.email);
+    setAddress(saved.address);
+    setCity(saved.city);
+    setState(saved.state);
+    setZip(saved.zip);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !address || !city || !state || !zip || !cardNumber) {
       alert('Please fill in all required fields');
       return;
     }
+    if (!user) {
+      alert('Please sign in before placing an order so it can be saved to your account.');
+      return;
+    }
 
     setIsSubmitting(true);
 
-    // Simulate luxury transaction processing
-    setTimeout(() => {
-      const orderId = `MHG-ORD-${Math.floor(100000 + Math.random() * 900000)}`;
-      const tracking = `MITHILA-SHIP-${Math.floor(10000000 + Math.random() * 90000000)}IN`;
-      
-      setGeneratedOrderId(orderId);
-      setGeneratedTracking(tracking);
+    try {
+      const addressPayload = {
+        id: selectedAddressId || undefined,
+        fullName: name,
+        email,
+        address,
+        city,
+        state,
+        zip,
+        isDefault: true,
+      };
+
+      await fetch('/api/addresses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(addressPayload),
+      });
+
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: addressPayload,
+          items: cart,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Order failed');
+
+      const data = await res.json();
+      setGeneratedOrderId(data.order.id);
+      setGeneratedTracking(data.order.trackingNumber);
       setIsSubmitting(false);
       setCheckoutStep('success');
-      
-      // Clear cart globally
       clearCart();
-    }, 3000);
+    } catch (error) {
+      console.error('Checkout failed:', error);
+      alert('Could not place the order. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   if (checkoutStep === 'success') {
@@ -151,10 +197,10 @@ export default function CheckoutPage() {
               <Printer className="h-4 w-4" /> Print Invoice
             </button>
             <Link
-              href="/gallery"
+              href="/orders"
               className="clickable flex items-center justify-center gap-1.5 px-6 py-3 bg-madhubani-terracotta dark:bg-madhubani-mustard text-white dark:text-madhubani-soot rounded-lg text-xs font-bold font-serif uppercase tracking-wider shadow-md hover:opacity-90 transition-opacity"
             >
-              Exhibition Catalog <ArrowRight className="h-4 w-4" />
+              View My Orders <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
@@ -223,6 +269,24 @@ export default function CheckoutPage() {
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-10 text-xs font-semibold uppercase tracking-wide font-sans">
+              {savedAddresses.length > 0 && (
+                <div className="space-y-2 col-span-1 md:col-span-2">
+                  <label htmlFor="saved-address" className="text-foreground/70">Use Saved Address</label>
+                  <select
+                    id="saved-address"
+                    value={selectedAddressId}
+                    onChange={(e) => applySavedAddress(e.target.value)}
+                    className="w-full border border-border bg-background/50 px-4 py-3 text-sm font-sans normal-case rounded-lg focus:outline-none focus:border-accent"
+                  >
+                    <option value="">Enter a new address</option>
+                    {savedAddresses.map((saved) => (
+                      <option key={saved.id} value={saved.id}>
+                        {saved.fullName} - {saved.city}, {saved.state}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="space-y-2 col-span-1 md:col-span-2">
                 <label htmlFor="name" className="text-foreground/70">Patron Full Name</label>
                 <input

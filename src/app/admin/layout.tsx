@@ -1,27 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
-import { LayoutDashboard, ShoppingBag, FolderKanban, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, FilePenLine, ShieldAlert, ArrowLeft, ClipboardList, Inbox } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAppStore();
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <span className="h-8 w-8 animate-spin rounded-full border-4 border-madhubani-terracotta border-t-transparent" />
-      </div>
-    );
-  }
 
   // Security Gate: Ensure only Admins can access
   // For easy demonstration, we can let the user click a mock "Bypass" or check the role.
@@ -59,19 +45,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const navItems = [
     { href: '/admin/dashboard', name: 'Overview Analytics', icon: LayoutDashboard },
+    { href: '/admin/content', name: 'Page Content', icon: FilePenLine },
     { href: '/admin/products', name: 'Manage Paintings', icon: ShoppingBag },
+    { href: '/admin/orders', name: 'Review Orders', icon: ClipboardList },
+    { href: '/admin/contacts', name: 'Contact Inbox', icon: Inbox },
   ];
 
   return (
-    <div className="mx-auto max-w-7xl w-full px-6 py-12 md:py-16 grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+    <div className="mx-auto max-w-7xl w-full px-4 py-8 sm:px-6 md:py-16 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
       
       {/* Sidebar Navigation */}
-      <aside className="md:col-span-3 space-y-4">
+      <aside className="lg:col-span-3 space-y-4 lg:sticky lg:top-24">
         <div className="glass-panel p-5 rounded-xl border">
           <span className="font-sans text-[10px] font-bold text-foreground/50 uppercase tracking-widest block mb-4">
             Curator Actions
           </span>
-          <nav className="space-y-1 text-xs font-semibold uppercase tracking-wide font-sans">
+          <nav className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-1 text-xs font-semibold uppercase tracking-wide font-sans">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href;
@@ -102,7 +91,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main Content Workspace */}
-      <main className="md:col-span-9">
+      <main className="lg:col-span-9 min-w-0">
         {children}
       </main>
 

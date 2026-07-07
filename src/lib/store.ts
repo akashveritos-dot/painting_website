@@ -78,6 +78,11 @@ export const useAppStore = create<AppState>()(
         }
 
         set({ cart: updatedCart });
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('heritage-feedback', {
+            detail: { type: 'cart', title: item.title },
+          }));
+        }
 
         // If logged in, sync with database
         if (get().user) {
@@ -141,6 +146,11 @@ export const useAppStore = create<AppState>()(
 
         const updatedWishlist = [...currentWishlist, item];
         set({ wishlist: updatedWishlist });
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('heritage-feedback', {
+            detail: { type: 'wishlist', title: item.title },
+          }));
+        }
 
         if (get().user) {
           fetch('/api/wishlist', {

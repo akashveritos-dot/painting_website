@@ -242,3 +242,23 @@ CREATE TABLE IF NOT EXISTS contact_requests
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- 17. Saved Addresses Table
+CREATE TABLE IF NOT EXISTS saved_addresses
+    (
+        id         VARCHAR(36) PRIMARY KEY            ,
+        user_id    VARCHAR(36) NOT NULL               ,
+        full_name  VARCHAR(255) NOT NULL              ,
+        email      VARCHAR(255) NOT NULL              ,
+        address    TEXT NOT NULL                      ,
+        city       VARCHAR(120) NOT NULL              ,
+        state      VARCHAR(120) NOT NULL              ,
+        zip        VARCHAR(30) NOT NULL               ,
+        is_default BOOLEAN DEFAULT TRUE               ,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON
+        UPDATE
+            CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON
+        DELETE
+            CASCADE,
+            INDEX idx_saved_address_user (user_id) ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

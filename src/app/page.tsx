@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/lib/store';
+import { DEFAULT_HOME_CONTENT, HomeContent } from '@/lib/site-content';
 import { ShoppingCart, Heart, ShieldCheck, Sparkles, ArrowRight } from 'lucide-react';
 
 interface Product {
@@ -33,6 +34,7 @@ function toCartItem(product: Product) {
 
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [homeContent, setHomeContent] = useState<HomeContent>(DEFAULT_HOME_CONTENT);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
 
@@ -51,6 +53,15 @@ export default function HomePage() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    fetch('/api/site-content')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.home) setHomeContent(data.home);
+      })
+      .catch((err) => console.error('Failed to load site content:', err));
+  }, []);
+
   const filteredProducts = products.filter((p) => {
     if (filter === 'all') return true;
     return p.categoryId === filter;
@@ -60,6 +71,10 @@ export default function HomePage() {
     <div className="relative w-full">
       {/* 1. HERO SECTION */}
       <section className="relative flex min-h-[90vh] flex-col justify-center overflow-hidden px-6 py-20 md:px-12 museum-glow">
+        <div className="mithila-ambient" aria-hidden="true">
+          <span className="mithila-symbol mithila-symbol--large" />
+          <span className="mithila-symbol mithila-symbol--small" />
+        </div>
         <div className="mx-auto max-w-7xl w-full grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
           
           <div className="md:col-span-7 flex flex-col items-start space-y-6 z-10">
@@ -70,7 +85,7 @@ export default function HomePage() {
               className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-madhubani-terracotta/20 bg-madhubani-terracotta/5 text-madhubani-terracotta dark:text-madhubani-mustard dark:border-madhubani-mustard/20 text-xs font-semibold uppercase tracking-widest"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              Preserving Mithila Heritage
+              {homeContent.heroEyebrow}
             </motion.div>
 
             <motion.h1
@@ -79,9 +94,9 @@ export default function HomePage() {
               transition={{ duration: 0.8, delay: 0.2 }}
               className="font-serif text-4xl sm:text-5xl md:text-6xl font-bold tracking-wide leading-tight text-foreground"
             >
-              Hand-Painted <br />
-              <span className="text-gold-gradient">Intricate Stories</span> <br />
-              On Handmade Paper
+              {homeContent.heroTitleLine1} <br />
+              <span className="text-gold-gradient">{homeContent.heroTitleAccent}</span> <br />
+              {homeContent.heroTitleLine3}
             </motion.h1>
 
             <motion.p
@@ -90,7 +105,7 @@ export default function HomePage() {
               transition={{ duration: 0.8, delay: 0.4 }}
               className="font-sans text-base md:text-lg text-foreground/75 leading-relaxed max-w-xl"
             >
-              Explore our world-class digital exhibition of authentic Madhubani paintings. Handcrafted with natural organic pigments, double outlines, and detailed line hatching by master artisans.
+              {homeContent.heroDescription}
             </motion.p>
 
             <motion.div
@@ -103,13 +118,13 @@ export default function HomePage() {
                 href="#exhibition"
                 className="clickable inline-flex items-center justify-center rounded-lg bg-madhubani-terracotta dark:bg-madhubani-mustard px-7 py-4 font-serif text-sm font-semibold tracking-wider text-white dark:text-madhubani-soot hover:opacity-90 transition-all shadow-lg gap-2"
               >
-                View Exhibition <ArrowRight className="h-4 w-4" />
+                {homeContent.heroPrimaryCta} <ArrowRight className="h-4 w-4" />
               </a>
               <Link
                 href="/gallery"
                 className="clickable inline-flex items-center justify-center rounded-lg border border-border bg-card/50 backdrop-blur-sm px-7 py-4 font-sans text-sm font-semibold tracking-wide hover:bg-card transition-all"
               >
-                Browse All Art
+                {homeContent.heroSecondaryCta}
               </Link>
             </motion.div>
           </div>
@@ -125,8 +140,8 @@ export default function HomePage() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent z-10" />
               
               <Image
-                src="/assets/images/celestial_peacock.png"
-                alt="Featured Madhubani Peacock Art"
+                src={homeContent.heroImage}
+                alt={homeContent.heroImageAlt}
                 fill
                 className="object-cover hover:scale-105 transition-transform duration-700"
                 priority
@@ -134,10 +149,10 @@ export default function HomePage() {
 
               <div className="absolute bottom-6 left-6 right-6 z-20 text-white">
                 <span className="font-sans text-[10px] uppercase tracking-[0.2em] font-semibold text-madhubani-mustard">
-                  Curator Choice
+                  {homeContent.heroImageLabel}
                 </span>
-                <h3 className="font-serif text-xl font-bold mt-1">The Celestial Peacock</h3>
-                <p className="font-sans text-xs text-white/80 mt-1">By Master Artisan, Bharni Style</p>
+                <h3 className="font-serif text-xl font-bold mt-1">{homeContent.heroImageTitle}</h3>
+                <p className="font-sans text-xs text-white/80 mt-1">{homeContent.heroImageDescription}</p>
               </div>
             </motion.div>
           </div>
@@ -181,10 +196,10 @@ export default function HomePage() {
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
             <div>
               <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground">
-                The Exhibition
+                {homeContent.exhibitionTitle}
               </h2>
               <p className="text-sm text-foreground/60 mt-2 max-w-md">
-                Individually signed paintings directly from Mithila workshops. Includes certified frames and seals.
+                {homeContent.exhibitionDescription}
               </p>
             </div>
 
@@ -218,7 +233,6 @@ export default function HomePage() {
               <AnimatePresence mode="popLayout">
                 {filteredProducts.map((product) => {
                   const inWishlist = wishlist.some((item) => item.productId === product.id);
-                  const displayPrice = product.salePrice ?? product.price;
 
                   return (
                     <motion.div
@@ -347,9 +361,9 @@ export default function HomePage() {
       <section className="py-20 px-6">
         <div className="mx-auto max-w-xl text-center flex flex-col items-center gap-4">
           <ShieldCheck className="h-10 w-10 text-madhubani-terracotta dark:text-madhubani-mustard" />
-          <h2 className="font-serif text-2xl font-bold text-foreground">Patron Protection Guarantee</h2>
+          <h2 className="font-serif text-2xl font-bold text-foreground">{homeContent.trustTitle}</h2>
           <p className="font-sans text-sm text-foreground/75 leading-relaxed">
-            Every creation is verified by local guilds. Ships with certificate seals signed by the painting artist, guaranteeing organic dye authenticity and local fair-trade wages.
+            {homeContent.trustDescription}
           </p>
         </div>
       </section>

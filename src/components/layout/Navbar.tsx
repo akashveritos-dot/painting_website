@@ -28,7 +28,7 @@ export default function Navbar() {
 
   // Load user session on mount
   useEffect(() => {
-    setMounted(true);
+    const frameId = window.requestAnimationFrame(() => setMounted(true));
     fetch('/api/auth/me')
       .then((res) => {
         if (res.ok) return res.json();
@@ -45,6 +45,8 @@ export default function Navbar() {
         console.error('Error checking auth state:', err);
         setUser(null);
       });
+
+    return () => window.cancelAnimationFrame(frameId);
   }, [setUser]);
 
   const handleLogout = async () => {
@@ -241,6 +243,15 @@ export default function Navbar() {
             >
               Contact
             </Link>
+            {mounted && user && (
+              <Link
+                href="/orders"
+                onClick={() => setMobileMenuOpen(false)}
+                className="hover:text-madhubani-terracotta dark:hover:text-madhubani-mustard transition-colors"
+              >
+                My Orders
+              </Link>
+            )}
             {mounted && !user && (
               <Link
                 href="/auth/login"

@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import CustomCursor from '@/components/ui/custom-cursor';
+import ActionFeedback from '@/components/ui/action-feedback';
 
 export const metadata: Metadata = {
   title: 'Mithila Heritage Gallery | Premium Madhubani Paintings',
@@ -37,6 +38,7 @@ export default function RootLayout({
         >
           {/* Immersive cursor interaction trail */}
           <CustomCursor />
+          <ActionFeedback />
           
           {/* Header navigation bar */}
           <Navbar />
