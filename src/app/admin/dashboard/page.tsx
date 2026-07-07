@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -7,9 +8,7 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer, 
-  LineChart, 
-  Line 
+  ResponsiveContainer 
 } from 'recharts';
 import { 
   TrendingUp, 
@@ -17,25 +16,146 @@ import {
   ShoppingBag, 
   DollarSign, 
   Truck, 
-  ShieldCheck 
+  ShieldCheck,
+  Sparkles
 } from 'lucide-react';
 
-const SALES_DATA = [
-  { month: 'Jan', sales: 4000, items: 12 },
-  { month: 'Feb', sales: 4500, items: 15 },
-  { month: 'Mar', sales: 5200, items: 18 },
-  { month: 'Apr', sales: 4800, items: 14 },
-  { month: 'May', sales: 6100, items: 22 },
-  { month: 'Jun', sales: 7400, items: 25 },
-  { month: 'Jul', sales: 8900, items: 31 },
-];
+interface Stats {
+  grossRevenue: number;
+  activePatrons: number;
+  totalArtworks: number;
+  fulfillmentRate: number;
+}
+
+interface ChartItem {
+  month: string;
+  sales: number;
+  items: number;
+}
+
+interface ActivityLog {
+  action: string;
+  details: string;
+  createdAt: string;
+}
+
+interface Product {
+  id: string;
+  title: string;
+  sku: string;
+}
 
 export default function AdminDashboardPage() {
-  const stats = [
-    { name: 'Gross Revenue', value: '$36,900.00', change: '+18.4% MoM', icon: DollarSign },
-    { name: 'Active Patrons', value: '184 Accounts', change: '+5.2% MoM', icon: Users },
-    { name: 'Artworks Registered', value: '42 Paintings', change: '+4 items', icon: ShoppingBag },
-    { name: 'Fulfillment Rate', value: '99.1%', status: 'Nominal', icon: Truck },
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [chartData, setChartData] = useState<ChartItem[]>([]);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Homepage Featured settings
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [savingSetting, setSavingSetting] = useState(false);
+  const [settingFeedback, setSettingFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Fetch all stats, chart data, and logs
+    const loadDashboardData = async () => {
+      try {
+        const statsRes = await fetch('/api/admin/stats');
+        const statsData = await statsRes.json();
+        
+        setStats(statsData.stats);
+        setChartData(statsData.chartData);
+        setLogs(statsData.activityLogs);
+
+        // Fetch products list for dropdown
+        const prodRes = await fetch('/api/products');
+        const prodData = await prodRes.json();
+        if (prodData.products) {
+          setProducts(prodData.products);
+        }
+
+        // Fetch current setting value
+        const settingsRes = await fetch('/api/settings?key=homepage_exclusive_product_id');
+        const settingsData = await settingsRes.json();
+        if (settingsData.value) {
+          setSelectedProductId(settingsData.value);
+        } else if (prodData.products && prodData.products.length > 0) {
+          setSelectedProductId(prodData.products[0].id);
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboardData();
+  }, []);
+
+  const handleUpdateExclusiveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProductId) return;
+
+    setSavingSetting(true);
+    setSettingFeedback(null);
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'homepage_exclusive_product_id',
+          value: selectedProductId,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to update showcase setting');
+      }
+
+      setSettingFeedback('Showcase painting updated successfully! Refresh home page to view.');
+      setTimeout(() => setSettingFeedback(null), 3000);
+    } catch (err: any) {
+      setSettingFeedback(err.message || 'Error updating settings');
+    } finally {
+      setSavingSetting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <span className="h-8 w-8 animate-spin rounded-full border-4 border-madhubani-terracotta border-t-transparent" />
+      </div>
+    );
+  }
+
+  const statItems = [
+    { 
+      name: 'Gross Revenue', 
+      value: stats ? `$${stats.grossRevenue.toFixed(2)}` : '$0.00', 
+      change: 'Real-time Sales', 
+      icon: DollarSign 
+    },
+    { 
+      name: 'Active Patrons', 
+      value: stats ? `${stats.activePatrons} Accounts` : '0 Accounts', 
+      change: 'Registered Patrons', 
+      icon: Users 
+    },
+    { 
+      name: 'Artworks Registered', 
+      value: stats ? `${stats.totalArtworks} Paintings` : '0 Paintings', 
+      change: 'Active Collections', 
+      icon: ShoppingBag 
+    },
+    { 
+      name: 'Fulfillment Rate', 
+      value: stats ? `${stats.fulfillmentRate}%` : '100%', 
+      change: 'Shipped & Delivered', 
+      icon: Truck 
+    },
   ];
 
   return (
@@ -50,7 +170,7 @@ export default function AdminDashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, idx) => {
+        {statItems.map((stat, idx) => {
           const Icon = stat.icon;
           return (
             <div key={idx} className="glass-panel p-5 rounded-xl border relative overflow-hidden bg-card/25 shadow-sm">
@@ -62,16 +182,56 @@ export default function AdminDashboardPage() {
                 <Icon className="h-5 w-5 text-madhubani-terracotta dark:text-madhubani-mustard" />
               </div>
               <div className="mt-4 relative z-10">
-                <span className="font-serif text-2xl font-bold text-foreground block">
+                <span className="font-serif text-xl md:text-2xl font-bold text-foreground block">
                   {stat.value}
                 </span>
                 <span className="font-sans text-[10px] font-semibold text-madhubani-forest mt-1 block">
-                  {stat.change || stat.status}
+                  {stat.change}
                 </span>
               </div>
             </div>
           );
         })}
+      </div>
+
+      {/* Homepage Feature Config Settings */}
+      <div className="glass-panel p-6 rounded-xl border relative shadow-sm">
+        <div className="absolute inset-2 border border-foreground/5 rounded-lg pointer-events-none" />
+        <h3 className="font-serif text-lg font-bold text-foreground mb-4 flex items-center gap-2 relative z-10">
+          <Sparkles className="h-5 w-5 text-accent" /> Homepage Spotlight Painting
+        </h3>
+
+        <form onSubmit={handleUpdateExclusiveProduct} className="space-y-4 relative z-10 text-xs font-semibold uppercase tracking-wide font-sans max-w-md">
+          <div className="space-y-2">
+            <label htmlFor="feature-product" className="text-foreground/70">Select Featured Painting</label>
+            <select
+              id="feature-product"
+              value={selectedProductId}
+              onChange={(e) => setSelectedProductId(e.target.value)}
+              className="w-full border border-border bg-background/50 px-3.5 py-3 text-sm normal-case font-sans rounded-lg focus:outline-none focus:border-accent"
+            >
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title} ({p.sku})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {settingFeedback && (
+            <div className="p-3 text-[10px] font-bold text-madhubani-forest bg-madhubani-forest/10 border border-madhubani-forest/20 rounded-lg">
+              {settingFeedback}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={savingSetting || products.length === 0}
+            className="clickable btn-heritage px-5 py-3 rounded-lg text-[10px] font-serif font-bold uppercase tracking-wider disabled:opacity-50"
+          >
+            {savingSetting ? 'Updating Showcase...' : 'Update Showcase Banner'}
+          </button>
+        </form>
       </div>
 
       {/* Sales Trend Chart */}
@@ -81,26 +241,32 @@ export default function AdminDashboardPage() {
           <TrendingUp className="h-5 w-5 text-accent" /> Sales Performance Trend (USD)
         </h3>
 
-        <div className="h-72 w-full relative z-10 font-sans text-xs">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={SALES_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-              <XAxis dataKey="month" stroke="var(--foreground)" opacity={0.5} />
-              <YAxis stroke="var(--foreground)" opacity={0.5} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'var(--card)', 
-                  borderColor: 'var(--border)',
-                  color: 'var(--foreground)'
-                }} 
-              />
-              <Bar dataKey="sales" fill="var(--color-madhubani-terracotta)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {chartData.length === 0 ? (
+          <div className="h-64 flex items-center justify-center font-sans text-xs text-foreground/50">
+            No sales data available.
+          </div>
+        ) : (
+          <div className="h-72 w-full relative z-10 font-sans text-xs">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                <XAxis dataKey="month" stroke="var(--foreground)" opacity={0.5} />
+                <YAxis stroke="var(--foreground)" opacity={0.5} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'var(--card)', 
+                    borderColor: 'var(--border)',
+                    color: 'var(--foreground)'
+                  }} 
+                />
+                <Bar dataKey="sales" fill="var(--color-madhubani-terracotta)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
-      {/* Log activity review */}
+      {/* System Logs */}
       <div className="glass-panel p-6 rounded-xl border relative shadow-sm">
         <div className="absolute inset-2 border border-foreground/5 rounded-lg pointer-events-none" />
         <h3 className="font-serif text-lg font-bold text-foreground mb-4 flex items-center gap-2 relative z-10">
@@ -108,19 +274,21 @@ export default function AdminDashboardPage() {
         </h3>
 
         <div className="space-y-3 font-sans text-xs relative z-10">
-          {[
-            { action: 'Acquisition Confirmed', desc: 'Order MHG-ORD-284915 processed for $390.00', time: '12 mins ago' },
-            { action: 'Inventory Modified', desc: 'Stock level for SKU: MHG-PEA-001 updated to 4 pieces', time: '1 hr ago' },
-            { action: 'New User Registered', desc: 'User account registered: patron@mithila.com', time: '4 hrs ago' },
-          ].map((log, idx) => (
-            <div key={idx} className="flex justify-between items-center py-2.5 border-b border-border last:border-0">
-              <div>
-                <span className="font-semibold text-foreground block">{log.action}</span>
-                <span className="text-foreground/60 mt-0.5 block">{log.desc}</span>
+          {logs.length === 0 ? (
+            <div className="text-center py-6 text-foreground/50">No logs found.</div>
+          ) : (
+            logs.map((log, idx) => (
+              <div key={idx} className="flex justify-between items-center py-2.5 border-b border-border last:border-0">
+                <div>
+                  <span className="font-semibold text-foreground block">{log.action}</span>
+                  <span className="text-foreground/60 mt-0.5 block">{log.details}</span>
+                </div>
+                <span className="text-foreground/45 italic">
+                  {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
               </div>
-              <span className="text-foreground/45 italic">{log.time}</span>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 

@@ -1,66 +1,81 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
-import { LayoutDashboard, ShoppingBag, FilePenLine, ShieldAlert, ArrowLeft, ClipboardList, Inbox } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, ArrowLeft } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useAppStore();
+  const router = useRouter();
   const pathname = usePathname();
+  const setUser = useAppStore((state) => state.setUser);
+  
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
 
-  // Security Gate: Ensure only Admins can access
-  // For easy demonstration, we can let the user click a mock "Bypass" or check the role.
-  // We will check user?.role === 'ADMIN'. If not, we show a gorgeous warning box.
-  const isAuthorized = user?.role === 'ADMIN';
+  useEffect(() => {
+    // Perform server-side session query directly to avoid state race conditions
+    fetch('/api/auth/me')
+      .then((res) => {
+        if (res.ok) return res.json();
+        return null;
+      })
+      .then((data) => {
+        if (data && data.user && data.user.role === 'ADMIN') {
+          setAuthorized(true);
+          setUser(data.user); // Sync store
+        } else {
+          setAuthorized(false);
+        }
+      })
+      .catch((err) => {
+        console.error('Admin layout auth query failed:', err);
+        setAuthorized(false);
+      })
+      .finally(() => {
+        setCheckingAuth(false);
+      });
+  }, [setUser]);
 
-  if (!isAuthorized) {
+  // Handle redirection for unauthorized sessions
+  useEffect(() => {
+    if (!checkingAuth && !authorized) {
+      router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
+    }
+  }, [checkingAuth, authorized, pathname, router]);
+
+  if (checkingAuth) {
     return (
-      <div className="mx-auto max-w-md w-full px-6 py-20 text-center flex flex-col items-center justify-center min-h-[65vh]">
-        <div className="p-5 rounded-full bg-madhubani-vermillion/10 border border-madhubani-vermillion/20 mb-6">
-          <ShieldAlert className="h-12 w-12 text-madhubani-vermillion" />
-        </div>
-        <h2 className="font-serif text-3xl font-bold text-foreground">Access Denied</h2>
-        <p className="text-sm text-foreground/60 mt-3 leading-relaxed">
-          The administration dashboard is restricted to curator accounts only. Please sign in with an authorized administrator account.
-        </p>
-        
-        {/* Mock Bypass option for demonstration */}
-        <div className="mt-8 p-4 border border-dashed border-border rounded-xl bg-card w-full text-xs font-sans text-left space-y-2">
-          <span className="font-bold text-foreground block">Curator Quick-Gate:</span>
-          <p className="text-foreground/75 leading-relaxed">
-            To view the full functionality of the Admin Dashboard, please sign in with an Admin account or update your role in the database.
-          </p>
-        </div>
-
-        <Link
-          href="/auth/login"
-          className="clickable mt-8 inline-flex items-center gap-2 rounded-lg bg-madhubani-terracotta dark:bg-madhubani-mustard px-6 py-3 font-serif text-sm font-semibold text-white dark:text-madhubani-soot hover:opacity-90 shadow-md"
-        >
-          Sign In as Admin
-        </Link>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
+        <span className="h-8 w-8 animate-spin rounded-full border-4 border-madhubani-terracotta border-t-transparent" />
+        <span className="font-sans text-xs text-foreground/50 uppercase tracking-widest font-semibold">
+          Authorizing Curator...
+        </span>
       </div>
     );
   }
 
+  if (!authorized) {
+    // Briefly show blank while redirecting
+    return null;
+  }
+
   const navItems = [
     { href: '/admin/dashboard', name: 'Overview Analytics', icon: LayoutDashboard },
-    { href: '/admin/content', name: 'Page Content', icon: FilePenLine },
     { href: '/admin/products', name: 'Manage Paintings', icon: ShoppingBag },
-    { href: '/admin/orders', name: 'Review Orders', icon: ClipboardList },
-    { href: '/admin/contacts', name: 'Contact Inbox', icon: Inbox },
   ];
 
   return (
-    <div className="mx-auto max-w-7xl w-full px-4 py-8 sm:px-6 md:py-16 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+    <div className="mx-auto max-w-7xl w-full px-6 py-12 md:py-16 grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
       
       {/* Sidebar Navigation */}
-      <aside className="lg:col-span-3 space-y-4 lg:sticky lg:top-24">
+      <aside className="md:col-span-3 space-y-4">
         <div className="glass-panel p-5 rounded-xl border">
           <span className="font-sans text-[10px] font-bold text-foreground/50 uppercase tracking-widest block mb-4">
             Curator Actions
           </span>
-          <nav className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-1 text-xs font-semibold uppercase tracking-wide font-sans">
+          <nav className="space-y-1 text-xs font-semibold uppercase tracking-wide font-sans">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href;
@@ -91,7 +106,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main Content Workspace */}
-      <main className="lg:col-span-9 min-w-0">
+      <main className="md:col-span-9">
         {children}
       </main>
 

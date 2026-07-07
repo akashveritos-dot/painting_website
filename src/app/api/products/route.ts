@@ -86,18 +86,18 @@ async function ensureCategoryId(categorySlug: string) {
 }
 
 function normalizeProductInput(body: Partial<ProductInput>): ProductInput {
-  const title = body.title?.trim() || 'Untitled Painting';
+  const title = body.title?.trim() || '';
   return {
     title,
     slug: body.slug?.trim() || slugify(title),
-    shortDescription: body.shortDescription?.trim() || 'Madhubani artwork from the Mithila tradition.',
-    longDescription: body.longDescription?.trim() || body.shortDescription?.trim() || 'Madhubani artwork from the Mithila tradition.',
+    shortDescription: body.shortDescription?.trim() || '',
+    longDescription: body.longDescription?.trim() || body.shortDescription?.trim() || '',
     price: Number(body.price || 0),
     salePrice: body.salePrice === null || body.salePrice === undefined || Number.isNaN(Number(body.salePrice)) ? null : Number(body.salePrice),
     stock: Number(body.stock || 0),
     sku: body.sku?.trim() || `MHG-${Date.now()}`,
     status: body.status || 'PUBLISHED',
-    featuredImage: body.featuredImage?.trim() || '/assets/images/celestial_peacock.png',
+    featuredImage: body.featuredImage?.trim() || '',
     categoryId: body.categoryId || 'bharni',
     featured: !!body.featured,
     newArrival: !!body.newArrival,
@@ -107,53 +107,6 @@ function normalizeProductInput(body: Partial<ProductInput>): ProductInput {
     seoDescription: body.seoDescription || null,
   };
 }
-
-const FALLBACK_PRODUCTS = [
-  {
-    id: 'prod-peacock-uuid-001',
-    title: 'The Celestial Peacock (Mayura)',
-    slug: 'celestial-peacock',
-    shortDescription: 'Vibrant peacock rendered in classical Mithila Bharni style.',
-    longDescription: 'A gorgeous Mayura (peacock) hand-painted using natural dyes on handmade paper. The Bharni style fills the shapes with deep vermillion, turmeric yellow, and indigo blue. Embellished with traditional floral borders. Includes certificate of authenticity.',
-    price: 240.00,
-    salePrice: 195.00,
-    discount: 18,
-    stock: 4,
-    sku: 'MHG-PEA-001',
-    status: 'PUBLISHED',
-    featuredImage: '/assets/images/celestial_peacock.png',
-    categoryId: 'bharni',
-    categoryName: 'Bharni Style',
-    featured: true,
-    newArrival: true,
-    bestSeller: false,
-    tags: ['peacock', 'nature', 'bharni', 'home-decor'],
-    seoTitle: 'The Celestial Peacock Madhubani Painting | Mithila Art',
-    seoDescription: 'Hand-painted celestial peacock Madhubani painting in traditional Bharni style.',
-  },
-  {
-    id: 'prod-fish-uuid-002',
-    title: 'Fish (Matsya) of Abundance',
-    slug: 'matsya-fish',
-    shortDescription: 'Intricate Kachni line art depicting prosperity and fertility.',
-    longDescription: 'A traditional painting focusing on the Matsya (fish) motif, which symbolizes wealth and fertility in Mithila culture. Drawn using fine double outlines and close parallel hatching (Kachni style) with terracotta and ochre pigments.',
-    price: 180.00,
-    salePrice: null,
-    discount: 0,
-    stock: 7,
-    sku: 'MHG-FIS-002',
-    status: 'PUBLISHED',
-    featuredImage: '/assets/images/matsya_fish.png',
-    categoryId: 'kachni',
-    categoryName: 'Kachni Style',
-    featured: true,
-    newArrival: false,
-    bestSeller: true,
-    tags: ['fish', 'matsya', 'kachni', 'prosperity'],
-    seoTitle: 'Fish of Abundance Madhubani Painting | Mithila Line Art',
-    seoDescription: 'Intricate Kachni line-art Madhubani painting of fish, representing abundance.',
-  }
-];
 
 export async function GET(request: Request) {
   try {
@@ -209,30 +162,14 @@ export async function GET(request: Request) {
       }));
 
     } catch (dbError) {
-      console.warn('MySQL products query failed, using static fallback:', dbError);
+      console.warn('MySQL products query failed:', dbError);
       products = [];
     }
 
-    // Fallback to static seed data if database is empty
-    if (products.length === 0) {
-      if (slug) {
-        const single = FALLBACK_PRODUCTS.find((p) => p.slug === slug);
-        return NextResponse.json(single ? { product: single } : { error: 'Product not found' }, { status: single ? 200 : 404 });
-      }
-
-      let filtered = FALLBACK_PRODUCTS;
-      if (category) {
-        filtered = filtered.filter((p) => p.categoryId === category);
-      }
-      if (featured) {
-        filtered = filtered.filter((p) => p.featured);
-      }
-
-      return NextResponse.json({ products: filtered });
-    }
-
     if (slug) {
-      return NextResponse.json({ product: products[0] });
+      return products[0]
+        ? NextResponse.json({ product: products[0] })
+        : NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
     return NextResponse.json({ products });
@@ -249,6 +186,10 @@ export async function POST(request: Request) {
 
   try {
     const product = normalizeProductInput(await request.json());
+    if (!product.title || !product.shortDescription || !product.longDescription || !product.featuredImage) {
+      return NextResponse.json({ error: 'Title, descriptions, and featured image are required' }, { status: 400 });
+    }
+
     const id = crypto.randomUUID();
     const categoryId = await ensureCategoryId(product.categoryId);
 
@@ -300,6 +241,10 @@ export async function PUT(request: Request) {
     }
 
     const product = normalizeProductInput(body);
+    if (!product.title || !product.shortDescription || !product.longDescription || !product.featuredImage) {
+      return NextResponse.json({ error: 'Title, descriptions, and featured image are required' }, { status: 400 });
+    }
+
     const categoryId = await ensureCategoryId(product.categoryId);
 
     await dbQuery(

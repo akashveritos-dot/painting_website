@@ -1,3 +1,13 @@
+export interface HomeFeaturedPainting {
+  id: string;
+  title: string;
+  description: string;
+  image: string;
+  imageAlt: string;
+  price: string;
+  tag: string;
+}
+
 export interface HomeContent {
   heroEyebrow: string;
   heroTitleLine1: string;
@@ -13,6 +23,7 @@ export interface HomeContent {
   heroImageDescription: string;
   exhibitionTitle: string;
   exhibitionDescription: string;
+  featuredPaintings: HomeFeaturedPainting[];
   stat1Value: string;
   stat1Label: string;
   stat2Value: string;
@@ -44,6 +55,7 @@ export const DEFAULT_HOME_CONTENT: HomeContent = {
   exhibitionTitle: 'The Exhibition',
   exhibitionDescription:
     'Individually signed paintings directly from Mithila workshops. Includes certified frames and seals.',
+  featuredPaintings: [],
   stat1Value: '20+',
   stat1Label: 'Master Artisans',
   stat2Value: '100%',
@@ -58,8 +70,23 @@ export const DEFAULT_HOME_CONTENT: HomeContent = {
 };
 
 export function normalizeHomeContent(value: Partial<HomeContent> | null | undefined): HomeContent {
+  const featuredPaintings = Array.isArray(value?.featuredPaintings)
+    ? value.featuredPaintings
+        .map((painting, index) => ({
+          id: painting.id || `featured-${index + 1}`,
+          title: painting.title?.trim() || '',
+          description: painting.description?.trim() || '',
+          image: painting.image?.trim() || '',
+          imageAlt: painting.imageAlt?.trim() || painting.title?.trim() || 'Featured Madhubani painting',
+          price: painting.price?.trim() || '',
+          tag: painting.tag?.trim() || '',
+        }))
+        .filter((painting) => painting.title || painting.description || painting.image || painting.price || painting.tag)
+    : DEFAULT_HOME_CONTENT.featuredPaintings;
+
   return {
     ...DEFAULT_HOME_CONTENT,
     ...(value || {}),
+    featuredPaintings,
   };
 }

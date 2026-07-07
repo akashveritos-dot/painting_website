@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { DEFAULT_HOME_CONTENT, HomeContent } from '@/lib/site-content';
-import { ImageIcon, Save, Sparkles } from 'lucide-react';
+import { DEFAULT_HOME_CONTENT, HomeContent, HomeFeaturedPainting } from '@/lib/site-content';
+import { ImageIcon, Plus, Save, Sparkles, Trash2 } from 'lucide-react';
+
+type TextHomeContentKey = Exclude<keyof HomeContent, 'featuredPaintings'>;
 
 const FIELD_GROUPS: Array<{
   title: string;
   description: string;
-  fields: Array<{ key: keyof HomeContent; label: string; type?: 'textarea' | 'text' }>;
+  fields: Array<{ key: TextHomeContentKey; label: string; type?: 'textarea' | 'text' }>;
 }> = [
   {
     title: 'Homepage Hero',
@@ -85,8 +87,46 @@ export default function AdminContentPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const updateField = (key: keyof HomeContent, value: string) => {
+  const updateField = (key: TextHomeContentKey, value: string) => {
     setHome((current) => ({ ...current, [key]: value }));
+  };
+
+  const addFeaturedPainting = () => {
+    setHome((current) => ({
+      ...current,
+      featuredPaintings: [
+        ...current.featuredPaintings,
+        {
+          id: crypto.randomUUID(),
+          title: '',
+          description: '',
+          image: '',
+          imageAlt: '',
+          price: '',
+          tag: '',
+        },
+      ],
+    }));
+  };
+
+  const updateFeaturedPainting = (
+    id: string,
+    key: keyof Omit<HomeFeaturedPainting, 'id'>,
+    value: string
+  ) => {
+    setHome((current) => ({
+      ...current,
+      featuredPaintings: current.featuredPaintings.map((painting) =>
+        painting.id === id ? { ...painting, [key]: value } : painting
+      ),
+    }));
+  };
+
+  const removeFeaturedPainting = (id: string) => {
+    setHome((current) => ({
+      ...current,
+      featuredPaintings: current.featuredPaintings.filter((painting) => painting.id !== id),
+    }));
   };
 
   const saveContent = async () => {
@@ -177,6 +217,115 @@ export default function AdminContentPage() {
               </div>
             </section>
           ))}
+
+          <section className="glass-panel rounded-xl border p-5 md:p-6">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="font-serif text-lg font-bold text-foreground">Featured Exclusive Paintings</h2>
+                <p className="text-xs text-foreground/60 mt-1">
+                  Add the homepage painting cards with their image, title, description, price, and tag.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addFeaturedPainting}
+                className="clickable inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-xs font-bold hover:bg-foreground/5"
+              >
+                <Plus className="h-4 w-4" />
+                Add Featured
+              </button>
+            </div>
+
+            {home.featuredPaintings.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-foreground/55">
+                No featured homepage paintings yet. Add one to show this section on the homepage.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {home.featuredPaintings.map((painting, index) => (
+                  <div key={painting.id} className="rounded-xl border border-border bg-background/30 p-4">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <h3 className="font-serif text-base font-bold text-foreground">
+                        Featured Painting {index + 1}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => removeFeaturedPainting(painting.id)}
+                        className="clickable inline-flex items-center gap-1.5 rounded-lg border border-madhubani-vermillion/25 px-3 py-2 text-xs font-bold text-madhubani-vermillion hover:bg-madhubani-vermillion/10"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Remove
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <label className="space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/60">
+                          Title
+                        </span>
+                        <input
+                          value={painting.title}
+                          onChange={(event) => updateFeaturedPainting(painting.id, 'title', event.target.value)}
+                          className="w-full rounded-lg border border-border bg-background/50 px-3.5 py-2.5 text-sm normal-case focus:outline-none focus:border-accent"
+                        />
+                      </label>
+                      <label className="space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/60">
+                          Tag
+                        </span>
+                        <input
+                          value={painting.tag}
+                          onChange={(event) => updateFeaturedPainting(painting.id, 'tag', event.target.value)}
+                          className="w-full rounded-lg border border-border bg-background/50 px-3.5 py-2.5 text-sm normal-case focus:outline-none focus:border-accent"
+                        />
+                      </label>
+                      <label className="space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/60">
+                          Price
+                        </span>
+                        <input
+                          value={painting.price}
+                          onChange={(event) => updateFeaturedPainting(painting.id, 'price', event.target.value)}
+                          placeholder="$195.00"
+                          className="w-full rounded-lg border border-border bg-background/50 px-3.5 py-2.5 text-sm normal-case focus:outline-none focus:border-accent"
+                        />
+                      </label>
+                      <label className="space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/60">
+                          Main Image Path or URL
+                        </span>
+                        <input
+                          value={painting.image}
+                          onChange={(event) => updateFeaturedPainting(painting.id, 'image', event.target.value)}
+                          className="w-full rounded-lg border border-border bg-background/50 px-3.5 py-2.5 text-sm normal-case focus:outline-none focus:border-accent"
+                        />
+                      </label>
+                      <label className="space-y-1.5 md:col-span-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/60">
+                          Image Alt Text
+                        </span>
+                        <input
+                          value={painting.imageAlt}
+                          onChange={(event) => updateFeaturedPainting(painting.id, 'imageAlt', event.target.value)}
+                          className="w-full rounded-lg border border-border bg-background/50 px-3.5 py-2.5 text-sm normal-case focus:outline-none focus:border-accent"
+                        />
+                      </label>
+                      <label className="space-y-1.5 md:col-span-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/60">
+                          Description
+                        </span>
+                        <textarea
+                          rows={3}
+                          value={painting.description}
+                          onChange={(event) => updateFeaturedPainting(painting.id, 'description', event.target.value)}
+                          className="w-full rounded-lg border border-border bg-background/50 px-3.5 py-2.5 text-sm normal-case focus:outline-none focus:border-accent"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
 
         <aside className="glass-panel rounded-xl border p-5 xl:sticky xl:top-24">

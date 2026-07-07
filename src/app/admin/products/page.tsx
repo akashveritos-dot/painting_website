@@ -45,7 +45,7 @@ const EMPTY_FORM: ProductForm = {
   stock: 1,
   sku: '',
   status: 'PUBLISHED',
-  featuredImage: '/assets/images/celestial_peacock.png',
+  featuredImage: '',
   categoryId: 'bharni',
   featured: true,
   newArrival: false,
@@ -369,7 +369,13 @@ export default function AdminProductsPage() {
 
                 <aside className="space-y-4">
                   <div className="madhubani-border relative aspect-[4/5] overflow-hidden rounded-md bg-card">
-                    <Image src={form.featuredImage} alt={form.title || 'Painting preview'} fill className="object-cover" />
+                    {form.featuredImage ? (
+                      <Image src={form.featuredImage} alt={form.title || 'Painting preview'} fill className="object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-5 text-center text-xs text-foreground/45">
+                        Add an image path to preview the painting.
+                      </div>
+                    )}
                   </div>
                   <div className="rounded-lg border border-border bg-background/35 p-4">
                     <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground/55">

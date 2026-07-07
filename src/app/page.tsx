@@ -1,24 +1,25 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/lib/store';
-import { DEFAULT_HOME_CONTENT, HomeContent } from '@/lib/site-content';
-import { ShoppingCart, Heart, ShieldCheck, Sparkles, ArrowRight } from 'lucide-react';
+import { ShoppingCart, Heart, ShieldCheck, Sparkles, ArrowRight, Award } from 'lucide-react';
 
 interface Product {
   id: string;
   title: string;
   slug: string;
   shortDescription: string;
+  longDescription: string;
   price: number;
   salePrice: number | null;
   featuredImage: string;
   categoryId: string;
   categoryName: string;
   stock: number;
+  tags: string[];
 }
 
 function toCartItem(product: Product) {
@@ -32,121 +33,40 @@ function toCartItem(product: Product) {
   };
 }
 
-function splitStatValue(value: string) {
-  const match = value.trim().match(/^([^0-9]*)([\d,]+)(.*)$/);
-
-  if (!match) {
-    return { prefix: '', target: 0, suffix: value };
-  }
-
-  return {
-    prefix: match[1],
-    target: Number(match[2].replace(/,/g, '')) || 0,
-    suffix: match[3],
-  };
-}
-
-function AnimatedStat({ value, label, delay = 0 }: { value: string; label: string; delay?: number }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [visible, setVisible] = useState(false);
-  const [current, setCurrent] = useState(0);
-  const { prefix, target, suffix } = splitStatValue(value);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.35 }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!visible) return;
-
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (prefersReducedMotion || target === 0) {
-      setCurrent(target);
-      return;
-    }
-
-    let frameId = 0;
-    let startTime: number | null = null;
-    const duration = 1200;
-
-    const tick = (time: number) => {
-      if (startTime === null) startTime = time + delay;
-
-      const progress = Math.min(Math.max((time - startTime) / duration, 0), 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-
-      setCurrent(Math.round(target * eased));
-
-      if (progress < 1) {
-        frameId = requestAnimationFrame(tick);
-      }
-    };
-
-    frameId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frameId);
-  }, [delay, target, visible]);
-
-  const displayValue = target > 0 ? `${prefix}${current.toLocaleString('en-US')}${suffix}` : value;
-
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 22 }}
-      animate={visible ? { opacity: 1, y: 0 } : undefined}
-      transition={{ duration: 0.55, delay: delay / 1000, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col gap-1"
-    >
-      <span className="font-serif text-4xl md:text-5xl font-bold text-madhubani-mustard">
-        {displayValue}
-      </span>
-      <span className="font-sans text-xs uppercase tracking-widest text-white/70">{label}</span>
-    </motion.div>
-  );
-}
-
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [homeContent, setHomeContent] = useState<HomeContent>(DEFAULT_HOME_CONTENT);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [exclusiveProduct, setExclusiveProduct] = useState<Product | null>(null);
 
   const { addToCart, addToWishlist, wishlist } = useAppStore();
 
-  // Fetch products from our API on mount
   useEffect(() => {
+    // 1. Fetch products
     fetch('/api/products')
       .then((res) => res.json())
       .then((data) => {
         if (data && data.products) {
-          setProducts(data.products);
+          const list: Product[] = data.products;
+          setProducts(list);
+
+          // 2. Fetch setting for exclusive featured product
+          return fetch('/api/settings?key=homepage_exclusive_product_id')
+            .then((res) => res.json())
+            .then((settingsData) => {
+              const exclusiveId = settingsData.value;
+              if (exclusiveId) {
+                const found = list.find((p) => p.id === exclusiveId);
+                if (found) setExclusiveProduct(found);
+              } else if (list.length > 0) {
+                // Default fallback to first product
+                setExclusiveProduct(list[0]);
+              }
+            });
         }
       })
-      .catch((err) => console.error('Failed to load products:', err))
+      .catch((err) => console.error('Failed to load page data:', err))
       .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    fetch('/api/site-content')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.home) setHomeContent(data.home);
-      })
-      .catch((err) => console.error('Failed to load site content:', err));
   }, []);
 
   const filteredProducts = products.filter((p) => {
@@ -158,10 +78,6 @@ export default function HomePage() {
     <div className="relative w-full">
       {/* 1. HERO SECTION */}
       <section className="relative flex min-h-[90vh] flex-col justify-center overflow-hidden px-6 py-20 md:px-12 museum-glow">
-        <div className="mithila-ambient" aria-hidden="true">
-          <span className="mithila-symbol mithila-symbol--large" />
-          <span className="mithila-symbol mithila-symbol--small" />
-        </div>
         <div className="mx-auto max-w-7xl w-full grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
           
           <div className="md:col-span-7 flex flex-col items-start space-y-6 z-10">
@@ -172,7 +88,7 @@ export default function HomePage() {
               className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-madhubani-terracotta/20 bg-madhubani-terracotta/5 text-madhubani-terracotta dark:text-madhubani-mustard dark:border-madhubani-mustard/20 text-xs font-semibold uppercase tracking-widest"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              {homeContent.heroEyebrow}
+              Preserving Mithila Heritage
             </motion.div>
 
             <motion.h1
@@ -181,9 +97,9 @@ export default function HomePage() {
               transition={{ duration: 0.8, delay: 0.2 }}
               className="font-serif text-4xl sm:text-5xl md:text-6xl font-bold tracking-wide leading-tight text-foreground"
             >
-              {homeContent.heroTitleLine1} <br />
-              <span className="text-gold-gradient">{homeContent.heroTitleAccent}</span> <br />
-              {homeContent.heroTitleLine3}
+              Hand-Painted <br />
+              <span className="text-gold-gradient">Intricate Stories</span> <br />
+              On Handmade Paper
             </motion.h1>
 
             <motion.p
@@ -192,7 +108,7 @@ export default function HomePage() {
               transition={{ duration: 0.8, delay: 0.4 }}
               className="font-sans text-base md:text-lg text-foreground/75 leading-relaxed max-w-xl"
             >
-              {homeContent.heroDescription}
+              Explore our world-class digital exhibition of authentic Madhubani paintings. Handcrafted with natural organic pigments, double outlines, and detailed line hatching by master artisans.
             </motion.p>
 
             <motion.div
@@ -205,43 +121,45 @@ export default function HomePage() {
                 href="#exhibition"
                 className="clickable inline-flex items-center justify-center rounded-lg bg-madhubani-terracotta dark:bg-madhubani-mustard px-7 py-4 font-serif text-sm font-semibold tracking-wider text-white dark:text-madhubani-soot hover:opacity-90 transition-all shadow-lg gap-2"
               >
-                {homeContent.heroPrimaryCta} <ArrowRight className="h-4 w-4" />
+                View Exhibition <ArrowRight className="h-4 w-4" />
               </a>
               <Link
                 href="/gallery"
                 className="clickable inline-flex items-center justify-center rounded-lg border border-border bg-card/50 backdrop-blur-sm px-7 py-4 font-sans text-sm font-semibold tracking-wide hover:bg-card transition-all"
               >
-                {homeContent.heroSecondaryCta}
+                Browse All Art
               </Link>
             </motion.div>
           </div>
 
           {/* Hero Visual Showcase */}
           <div className="md:col-span-5 flex justify-center z-10">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1, delay: 0.3 }}
-              className="madhubani-border relative w-full max-w-sm aspect-[4/5] rounded-lg overflow-hidden shadow-2xl bg-card"
-            >
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent z-10" />
-              
-              <Image
-                src={homeContent.heroImage}
-                alt={homeContent.heroImageAlt}
-                fill
-                className="object-cover hover:scale-105 transition-transform duration-700"
-                priority
-              />
+            {products.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 1, delay: 0.3 }}
+                className="madhubani-border relative w-full max-w-sm aspect-[4/5] rounded-lg overflow-hidden shadow-2xl bg-card"
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent z-10" />
+                
+                <Image
+                  src={products[0].featuredImage}
+                  alt="Featured Madhubani Peacock Art"
+                  fill
+                  className="object-cover hover:scale-105 transition-transform duration-700"
+                  priority
+                />
 
-              <div className="absolute bottom-6 left-6 right-6 z-20 text-white">
-                <span className="font-sans text-[10px] uppercase tracking-[0.2em] font-semibold text-madhubani-mustard">
-                  {homeContent.heroImageLabel}
-                </span>
-                <h3 className="font-serif text-xl font-bold mt-1">{homeContent.heroImageTitle}</h3>
-                <p className="font-sans text-xs text-white/80 mt-1">{homeContent.heroImageDescription}</p>
-              </div>
-            </motion.div>
+                <div className="absolute bottom-6 left-6 right-6 z-20 text-white">
+                  <span className="font-sans text-[10px] uppercase tracking-[0.2em] font-semibold text-madhubani-mustard">
+                    Curator Choice
+                  </span>
+                  <h3 className="font-serif text-xl font-bold mt-1">{products[0].title}</h3>
+                  <p className="font-sans text-xs text-white/80 mt-1">By Master Artisan</p>
+                </div>
+              </motion.div>
+            )}
           </div>
 
         </div>
@@ -283,10 +201,10 @@ export default function HomePage() {
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
             <div>
               <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground">
-                {homeContent.exhibitionTitle}
+                The Exhibition
               </h2>
               <p className="text-sm text-foreground/60 mt-2 max-w-md">
-                {homeContent.exhibitionDescription}
+                Individually signed paintings directly from Mithila workshops. Includes certified frames and seals.
               </p>
             </div>
 
@@ -422,23 +340,148 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 4. STATISTICS COUNTER */}
+      {/* 4. DEDICATED FEATURED EXCLUSIVE PAINTING SECTION */}
+      {exclusiveProduct && (
+        <section className="py-24 px-6 bg-card/25 border-y border-border relative">
+          {/* Accent decoration background dots */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 h-96 w-96 rounded-full bg-madhubani-mustard/5 blur-3xl" />
+          
+          <div className="mx-auto max-w-7xl">
+            <div className="text-center mb-16">
+              <span className="font-sans text-xs font-bold uppercase tracking-widest text-madhubani-terracotta dark:text-madhubani-mustard">
+                Featured Exclusive Masterpiece
+              </span>
+              <h2 className="font-serif text-3xl md:text-5xl font-bold mt-2">
+                Exclusive Curator Spotlight
+              </h2>
+              <div className="h-[2px] w-24 bg-accent mx-auto mt-4" />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+              {/* Image box with border bevel frame */}
+              <div className="lg:col-span-6 flex justify-center">
+                <div className="border-[16px] border-[#3E2723] p-2.5 shadow-2xl rounded relative max-w-md w-full aspect-[4/5] bg-white ring-8 ring-[#3E2723]/5">
+                  <div className="madhubani-border relative w-full h-full rounded overflow-hidden">
+                    <Image
+                      src={exclusiveProduct.featuredImage}
+                      alt={exclusiveProduct.title}
+                      fill
+                      className="object-cover hover:scale-105 transition-transform duration-700"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Text & detailed acquisition details */}
+              <div className="lg:col-span-6 space-y-6">
+                <div className="flex items-center gap-2">
+                  <Award className="h-5 w-5 text-madhubani-terracotta dark:text-madhubani-mustard" />
+                  <span className="font-serif text-sm font-semibold text-foreground/60 uppercase tracking-wider">
+                    {exclusiveProduct.categoryName} Masterpiece
+                  </span>
+                </div>
+
+                <h3 className="font-serif text-3xl sm:text-4xl font-bold text-foreground leading-tight">
+                  {exclusiveProduct.title}
+                </h3>
+
+                {/* Price block */}
+                <div className="flex items-center gap-3">
+                  {exclusiveProduct.salePrice ? (
+                    <>
+                      <span className="font-serif text-3xl font-bold text-madhubani-terracotta dark:text-madhubani-mustard">
+                        ${exclusiveProduct.salePrice.toFixed(2)}
+                      </span>
+                      <span className="font-sans text-sm text-foreground/45 line-through">
+                        ${exclusiveProduct.price.toFixed(2)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="font-serif text-3xl font-bold text-foreground">
+                      ${exclusiveProduct.price.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+
+                <p className="font-sans text-sm text-foreground/75 leading-relaxed">
+                  {exclusiveProduct.longDescription || exclusiveProduct.shortDescription}
+                </p>
+
+                {/* Tags */}
+                {exclusiveProduct.tags && exclusiveProduct.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {exclusiveProduct.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="px-3 py-1 bg-foreground/5 border border-border text-[10px] font-sans font-bold uppercase tracking-wider rounded"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-4 pt-4 items-center">
+                  <button
+                    onClick={() => addToCart(toCartItem(exclusiveProduct), 1)}
+                    disabled={exclusiveProduct.stock <= 0}
+                    className="clickable btn-heritage px-8 py-4 rounded-lg font-serif text-xs font-bold tracking-widest shadow-lg flex items-center gap-2"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                    ACQUIRE EXCLUSIVE WORK
+                  </button>
+
+                  <button
+                    onClick={() => addToWishlist({
+                      productId: exclusiveProduct.id,
+                      title: exclusiveProduct.title,
+                      price: exclusiveProduct.price,
+                      salePrice: exclusiveProduct.salePrice,
+                      featuredImage: exclusiveProduct.featuredImage
+                    })}
+                    className="clickable p-3.5 border border-border bg-card hover:text-madhubani-vermillion rounded-lg"
+                    aria-label="Add to wishlist"
+                  >
+                    <Heart className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+      )}
+
+      {/* 5. STATISTICS COUNTER */}
       <section className="bg-madhubani-terracotta text-white dark:bg-linen-dark dark:border-t border-border py-16">
         <div className="mx-auto max-w-7xl px-6 grid grid-cols-2 gap-8 md:grid-cols-4 text-center">
-          <AnimatedStat value={homeContent.stat1Value} label={homeContent.stat1Label} />
-          <AnimatedStat value={homeContent.stat2Value} label={homeContent.stat2Label} delay={90} />
-          <AnimatedStat value={homeContent.stat3Value} label={homeContent.stat3Label} delay={180} />
-          <AnimatedStat value={homeContent.stat4Value} label={homeContent.stat4Label} delay={270} />
+          <div className="flex flex-col gap-1">
+            <span className="font-serif text-4xl md:text-5xl font-bold text-madhubani-mustard">20+</span>
+            <span className="font-sans text-xs uppercase tracking-widest text-white/70">Master Artisans</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="font-serif text-4xl md:text-5xl font-bold text-madhubani-mustard">100%</span>
+            <span className="font-sans text-xs uppercase tracking-widest text-white/70">Organic Pigments</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="font-serif text-4xl md:text-5xl font-bold text-madhubani-mustard">15+</span>
+            <span className="font-sans text-xs uppercase tracking-widest text-white/70">Villages Supported</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="font-serif text-4xl md:text-5xl font-bold text-madhubani-mustard">1,200+</span>
+            <span className="font-sans text-xs uppercase tracking-widest text-white/70">Paintings Shipped</span>
+          </div>
         </div>
       </section>
 
-      {/* 5. TRUST BANNER */}
+      {/* 6. TRUST BANNER */}
       <section className="py-20 px-6">
         <div className="mx-auto max-w-xl text-center flex flex-col items-center gap-4">
           <ShieldCheck className="h-10 w-10 text-madhubani-terracotta dark:text-madhubani-mustard" />
-          <h2 className="font-serif text-2xl font-bold text-foreground">{homeContent.trustTitle}</h2>
+          <h2 className="font-serif text-2xl font-bold text-foreground">Patron Protection Guarantee</h2>
           <p className="font-sans text-sm text-foreground/75 leading-relaxed">
-            {homeContent.trustDescription}
+            Every creation is verified by local guilds. Ships with certificate seals signed by the painting artist, guaranteeing organic dye authenticity and local fair-trade wages.
           </p>
         </div>
       </section>

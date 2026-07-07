@@ -1,15 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAppStore } from '@/lib/store';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setUser = useAppStore((state) => state.setUser);
+
+  // Read target redirection path (default to Home page)
+  const redirectUrl = searchParams.get('redirect') || '/';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +45,9 @@ export default function LoginPage() {
       }
 
       setUser(data.user);
-      router.push('/');
+      
+      // Redirect back to target URL (e.g. Admin Dashboard)
+      router.push(redirectUrl);
       router.refresh();
     } catch (err: any) {
       setError(err.message || 'Incorrect email or password');
@@ -169,5 +175,19 @@ export default function LoginPage() {
         </p>
       </motion.div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense 
+      fallback={
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <span className="h-8 w-8 animate-spin rounded-full border-4 border-madhubani-terracotta border-t-transparent" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
