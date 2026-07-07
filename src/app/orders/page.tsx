@@ -231,7 +231,7 @@ export default function OrdersPage() {
                   </p>
                 </div>
                 <div className="text-left md:text-right">
-                  <span className="font-serif text-2xl font-bold">${order.totalAmount.toFixed(2)}</span>
+                  <span className="font-serif text-2xl font-bold">₹{order.totalAmount.toLocaleString('en-IN')}</span>
                   <p className="text-xs text-foreground/55 mt-1 flex items-center gap-1 md:justify-end">
                     <Truck className="h-3.5 w-3.5" />
                     {order.trackingNumber || 'Tracking pending'}
@@ -249,7 +249,7 @@ export default function OrdersPage() {
                 {order.items.map((item) => (
                   <div key={`${order.id}-${item.productId}`} className="rounded-lg border border-border bg-background/35 p-3 text-xs">
                     <span className="font-bold">{item.title}</span>
-                    <span className="block text-foreground/60 mt-1">Qty {item.quantity} / ${item.price.toFixed(2)}</span>
+                    <span className="block text-foreground/60 mt-1">Qty {item.quantity} / ₹{item.price.toLocaleString('en-IN')}</span>
                   </div>
                 ))}
               </div>

@@ -209,6 +209,13 @@ function GalleryContent() {
                       {product.categoryName}
                     </span>
 
+                    {/* Blinking Sale Tag */}
+                    {product.salePrice && (
+                      <span className="absolute top-8 right-24 z-10 px-2.5 py-1 bg-madhubani-vermillion text-white text-[9px] font-sans font-bold uppercase tracking-wider rounded-md sale-tag-blink">
+                        SALE
+                      </span>
+                    )}
+
                     {/* Wishlist toggle */}
                     <button
                       onClick={() => addToWishlist({
@@ -241,15 +248,15 @@ function GalleryContent() {
                           {product.salePrice ? (
                             <>
                               <span className="font-serif text-lg font-bold text-madhubani-terracotta dark:text-madhubani-mustard block">
-                                ${product.salePrice.toFixed(2)}
+                                ₹{product.salePrice.toLocaleString('en-IN')}
                               </span>
                               <span className="font-sans text-[10px] text-foreground/45 line-through block mt-0.5">
-                                ${product.price.toFixed(2)}
+                                ₹{product.price.toLocaleString('en-IN')}
                               </span>
                             </>
                           ) : (
                             <span className="font-serif text-lg font-bold text-foreground block">
-                              ${product.price.toFixed(2)}
+                              ₹{product.price.toLocaleString('en-IN')}
                             </span>
                           )}
                         </div>

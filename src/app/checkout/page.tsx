@@ -120,7 +120,7 @@ export default function CheckoutPage() {
     return acc + price * item.quantity;
   }, 0);
   const tax = subtotal * 0.08;
-  const shipping = subtotal > 250 ? 0.00 : 20.00;
+  const shipping = subtotal > 25000 ? 0.00 : 2000.00;
   const total = subtotal + tax + shipping;
 
   const applySavedAddress = (addressId: string) => {
@@ -532,7 +532,7 @@ export default function CheckoutPage() {
                       Qty: {item.quantity}
                     </span>
                     <span className="text-foreground font-bold">
-                      ${(price * item.quantity).toFixed(2)}
+                      ₹{(price * item.quantity).toLocaleString('en-IN')}
                     </span>
                   </li>
                 );
@@ -543,19 +543,19 @@ export default function CheckoutPage() {
             <div className="space-y-3.5 border-t border-border pt-4 text-xs font-sans relative z-10">
               <div className="flex justify-between text-foreground/85">
                 <span>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>₹{subtotal.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between text-foreground/85">
                 <span>Estimated Tax (8%)</span>
-                <span>${tax.toFixed(2)}</span>
+                <span>₹{tax.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between text-foreground/85">
                 <span>Shipping Charges</span>
-                <span>{shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}</span>
+                <span>{shipping === 0 ? 'FREE' : `₹${shipping.toLocaleString('en-IN')}`}</span>
               </div>
               <div className="border-t border-border pt-3.5 flex justify-between text-sm font-bold text-foreground">
                 <span>Acquisition Cost</span>
-                <span>${total.toFixed(2)}</span>
+                <span>₹{total.toLocaleString('en-IN')}</span>
               </div>
             </div>
 

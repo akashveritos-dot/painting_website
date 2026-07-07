@@ -85,7 +85,7 @@ export default function WishlistPage() {
                     {item.title}
                   </h3>
                   <span className="font-serif text-base font-bold text-madhubani-terracotta dark:text-madhubani-mustard block mt-1.5">
-                    ${(item.salePrice ?? item.price).toFixed(2)}
+                    ₹{(item.salePrice ?? item.price).toLocaleString('en-IN')}
                   </span>
                 </div>
 

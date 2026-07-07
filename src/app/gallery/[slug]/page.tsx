@@ -82,8 +82,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
 
   const sizeUpcharges = {
     standard: 0,
-    medium: 45.00,
-    large: 90.00,
+    medium: 4500.00,
+    large: 9000.00,
   };
 
   const basePrice = product.salePrice ?? product.price;
@@ -193,15 +193,15 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
                 {product.salePrice ? (
                   <>
                     <span className="font-serif text-2xl font-bold text-madhubani-terracotta dark:text-madhubani-mustard">
-                      ${currentPrice.toFixed(2)}
+                      ₹{currentPrice.toLocaleString('en-IN')}
                     </span>
                     <span className="font-sans text-sm text-foreground/45 line-through">
-                      (${(product.price + sizeUpcharges[selectedSize]).toFixed(2)})
+                      (₹{(product.price + sizeUpcharges[selectedSize]).toLocaleString('en-IN')})
                     </span>
                   </>
                 ) : (
                   <span className="font-serif text-2xl font-bold text-foreground">
-                    ${currentPrice.toFixed(2)}
+                    ₹{currentPrice.toLocaleString('en-IN')}
                   </span>
                 )}
               </div>
@@ -216,8 +216,8 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ slug:
             <div className="space-y-2">
               {[
                 { id: 'standard', name: 'Standard (12" x 15")', desc: 'Original size as drafted' },
-                { id: 'medium', name: 'Gallery Medium (16" x 20")', desc: 'Double border expanded', price: '+$45' },
-                { id: 'large', name: 'Museum Large (20" x 24")', desc: 'Full custom sizing detail', price: '+$90' },
+                { id: 'medium', name: 'Gallery Medium (16" x 20")', desc: 'Double border expanded', price: '+₹4,500' },
+                { id: 'large', name: 'Museum Large (20" x 24")', desc: 'Full custom sizing detail', price: '+₹9,000' },
               ].map((size) => (
                 <button
                   key={size.id}

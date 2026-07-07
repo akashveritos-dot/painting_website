@@ -255,10 +255,10 @@ export default function AdminProductsPage() {
                     </div>
                     <div className="text-left sm:text-right">
                       <span className="font-serif text-xl font-bold text-foreground">
-                        ${(product.salePrice ?? product.price).toFixed(2)}
+                        ₹{(product.salePrice ?? product.price).toLocaleString('en-IN')}
                       </span>
                       {product.salePrice && (
-                        <span className="block text-xs text-foreground/45 line-through">${product.price.toFixed(2)}</span>
+                        <span className="block text-xs text-foreground/45 line-through">₹{product.price.toLocaleString('en-IN')}</span>
                       )}
                     </div>
                   </div>
@@ -337,12 +337,12 @@ export default function AdminProductsPage() {
                       <option value="ARCHIVED">Archived</option>
                     </select>
                   </label>
-                  <label className="space-y-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/60">Price</span>
+                   <label className="space-y-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/60">Price (INR)</span>
                     <input type="number" min="0" step="0.01" value={form.price} onChange={(event) => updateForm('price', Number(event.target.value))} required className="w-full rounded-lg border border-border bg-background/50 px-3.5 py-2.5 text-sm focus:outline-none focus:border-accent" />
                   </label>
                   <label className="space-y-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/60">Sale Price</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/60">Sale Price (INR)</span>
                     <input type="number" min="0" step="0.01" value={form.salePrice ?? ''} onChange={(event) => updateForm('salePrice', event.target.value ? Number(event.target.value) : null)} className="w-full rounded-lg border border-border bg-background/50 px-3.5 py-2.5 text-sm focus:outline-none focus:border-accent" />
                   </label>
                   <label className="space-y-1.5">

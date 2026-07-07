@@ -265,6 +265,13 @@ export default function HomePage() {
                           {product.categoryName}
                         </span>
 
+                        {/* Blinking Sale Tag */}
+                        {product.salePrice && (
+                          <span className="absolute top-8 right-24 z-10 px-2.5 py-1 bg-madhubani-vermillion text-white text-[9px] font-sans font-bold uppercase tracking-wider rounded-md sale-tag-blink">
+                            SALE
+                          </span>
+                        )}
+
                         {/* Wishlist Button */}
                         <button
                           onClick={() => addToWishlist({
@@ -296,15 +303,15 @@ export default function HomePage() {
                               {product.salePrice ? (
                                 <>
                                   <span className="font-serif text-xl font-bold text-madhubani-terracotta dark:text-madhubani-mustard">
-                                    ${product.salePrice.toFixed(2)}
+                                    ₹{product.salePrice.toLocaleString('en-IN')}
                                   </span>
                                   <span className="font-sans text-xs text-foreground/45 line-through">
-                                    ${product.price.toFixed(2)}
+                                    ₹{product.price.toLocaleString('en-IN')}
                                   </span>
                                 </>
                               ) : (
                                 <span className="font-serif text-xl font-bold text-foreground">
-                                  ${product.price.toFixed(2)}
+                                  ₹{product.price.toLocaleString('en-IN')}
                                 </span>
                               )}
                             </div>
@@ -390,15 +397,15 @@ export default function HomePage() {
                   {exclusiveProduct.salePrice ? (
                     <>
                       <span className="font-serif text-3xl font-bold text-madhubani-terracotta dark:text-madhubani-mustard">
-                        ${exclusiveProduct.salePrice.toFixed(2)}
+                        ₹{exclusiveProduct.salePrice.toLocaleString('en-IN')}
                       </span>
                       <span className="font-sans text-sm text-foreground/45 line-through">
-                        ${exclusiveProduct.price.toFixed(2)}
+                        ₹{exclusiveProduct.price.toLocaleString('en-IN')}
                       </span>
                     </>
                   ) : (
                     <span className="font-serif text-3xl font-bold text-foreground">
-                      ${exclusiveProduct.price.toFixed(2)}
+                      ₹{exclusiveProduct.price.toLocaleString('en-IN')}
                     </span>
                   )}
                 </div>

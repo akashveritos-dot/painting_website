@@ -274,3 +274,13 @@ body {
     animation: none;
   }
 }
+
+/* Blinking Pulsating Sale Tags */
+@keyframes sale-blink-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.96); }
+}
+
+.sale-tag-blink {
+  animation: sale-blink-pulse 1.4s infinite ease-in-out;
+}

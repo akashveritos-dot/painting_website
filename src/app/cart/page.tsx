@@ -37,25 +37,46 @@ export default function CartPage() {
   const discountAmount = subtotal * (couponDiscount / 100);
   const taxedSubtotal = subtotal - discountAmount;
   const tax = taxedSubtotal * 0.08; // 8% tax rate
-  const shipping = subtotal > 0 && taxedSubtotal < 250 ? 20.00 : 0.00; // Free shipping over $250
+  const shipping = subtotal > 0 && taxedSubtotal < 25000 ? 2000.00 : 0.00; // Free shipping over ₹25,000
   const total = taxedSubtotal + tax + shipping;
 
-  const handleApplyCoupon = (e: React.FormEvent) => {
+  const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     setCouponError(null);
 
     const code = couponCode.trim().toUpperCase();
+    if (!code) return;
 
-    if (code === 'WELCOME10') {
-      setCouponDiscount(10);
-      setAppliedCoupon('WELCOME10 (10% OFF)');
-      setCouponCode('');
-    } else if (code === 'HERITAGE20') {
-      setCouponDiscount(20);
-      setAppliedCoupon('HERITAGE20 (20% OFF)');
-      setCouponCode('');
-    } else {
-      setCouponError('Invalid coupon code. Try WELCOME10 or HERITAGE20.');
+    try {
+      const res = await fetch(`/api/coupons?code=${code}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to apply coupon.');
+      }
+
+      if (data.valid && data.coupon) {
+        const { discountType, discountValue, minOrderAmount } = data.coupon;
+
+        if (subtotal < minOrderAmount) {
+          throw new Error(`This coupon requires a minimum purchase of ₹${minOrderAmount.toLocaleString('en-IN')}.`);
+        }
+
+        if (discountType === 'PERCENTAGE') {
+          setCouponDiscount(discountValue);
+          setAppliedCoupon(`${code} (${discountValue}% OFF)`);
+        } else {
+          // If it is FIXED discount: calculate percentage equivalent dynamically for subtotal
+          const percentageEquivalent = (discountValue / subtotal) * 100;
+          setCouponDiscount(percentageEquivalent);
+          setAppliedCoupon(`${code} (₹${discountValue.toLocaleString('en-IN')} OFF)`);
+        }
+        setCouponCode('');
+      } else {
+        throw new Error('Invalid coupon code.');
+      }
+    } catch (err: any) {
+      setCouponError(err.message || 'Invalid coupon code.');
     }
   };
 
@@ -166,11 +187,11 @@ export default function CartPage() {
                         {/* Totals */}
                         <div className="text-right">
                           <span className="font-serif text-base font-bold text-foreground block">
-                            ${(price * item.quantity).toFixed(2)}
+                            ₹{(price * item.quantity).toLocaleString('en-IN')}
                           </span>
                           {item.quantity > 1 && (
                             <span className="font-sans text-[10px] text-foreground/50 block mt-0.5">
-                              (${price.toFixed(2)} each)
+                              (₹{price.toLocaleString('en-IN')} each)
                             </span>
                           )}
                         </div>
@@ -213,7 +234,7 @@ export default function CartPage() {
             <div className="space-y-3.5 text-sm font-sans relative z-10">
               <div className="flex justify-between text-foreground/80">
                 <span>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>₹{subtotal.toLocaleString('en-IN')}</span>
               </div>
 
               {appliedCoupon && (
@@ -221,23 +242,23 @@ export default function CartPage() {
                   <span className="flex items-center gap-1">
                     <Percent className="h-3.5 w-3.5" /> Coupon Discount
                   </span>
-                  <span>-${discountAmount.toFixed(2)}</span>
+                  <span>-₹{discountAmount.toLocaleString('en-IN')}</span>
                 </div>
               )}
 
               <div className="flex justify-between text-foreground/80">
                 <span>Estimated Tax (8%)</span>
-                <span>${tax.toFixed(2)}</span>
+                <span>₹{tax.toLocaleString('en-IN')}</span>
               </div>
 
               <div className="flex justify-between text-foreground/80">
                 <span>Shipping</span>
-                <span>{shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}</span>
+                <span>{shipping === 0 ? 'FREE' : `₹${shipping.toLocaleString('en-IN')}`}</span>
               </div>
 
               <div className="border-t border-border pt-4 flex justify-between text-base font-bold text-foreground">
                 <span>Estimated Total</span>
-                <span>${total.toFixed(2)}</span>
+                <span>₹{total.toLocaleString('en-IN')}</span>
               </div>
             </div>
 
