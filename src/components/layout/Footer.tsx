@@ -1,7 +1,14 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 
 export default function Footer() {
+  const pathname = usePathname();
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
   return (
     <footer className="mt-auto border-t border-border bg-card/40 backdrop-blur-md">
       {/* Decorative Madhubani border line */}

@@ -4,7 +4,14 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
-import { LayoutDashboard, ShoppingBag, ArrowLeft } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  ShoppingBag, 
+  ArrowLeft,
+  Truck,
+  MessageSquare,
+  Sliders 
+} from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -64,6 +71,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const navItems = [
     { href: '/admin/dashboard', name: 'Overview Analytics', icon: LayoutDashboard },
     { href: '/admin/products', name: 'Manage Paintings', icon: ShoppingBag },
+    { href: '/admin/orders', name: 'Review Orders', icon: Truck },
+    { href: '/admin/contacts', name: 'Contact Inbox', icon: MessageSquare },
+    { href: '/admin/content', name: 'Page Content', icon: Sliders },
   ];
 
   return (
