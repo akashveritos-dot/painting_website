@@ -15,6 +15,69 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+declare global {
+  interface Window {
+    Razorpay?: new (options: RazorpayCheckoutOptions) => { open: () => void };
+  }
+}
+
+interface RazorpayCheckoutOptions {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  prefill: {
+    name: string;
+    email: string;
+  };
+  theme: {
+    color: string;
+  };
+  handler: (response: RazorpayPaymentResponse) => void;
+  modal: {
+    ondismiss: () => void;
+  };
+}
+
+interface RazorpayPaymentResponse {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
+function getCheckoutIdempotencyKey() {
+  const storageKey = 'madhubani-checkout-idempotency-key';
+  let key = window.sessionStorage.getItem(storageKey);
+
+  if (!key) {
+    key = crypto.randomUUID();
+    window.sessionStorage.setItem(storageKey, key);
+  }
+
+  return key;
+}
+
+function clearCheckoutIdempotencyKey() {
+  window.sessionStorage.removeItem('madhubani-checkout-idempotency-key');
+}
+
+function loadRazorpayScript() {
+  return new Promise<boolean>((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
 export default function CheckoutPage() {
   const { user, cart, clearCart } = useAppStore();
   const [savedAddresses, setSavedAddresses] = useState<Array<{
@@ -35,16 +98,12 @@ export default function CheckoutPage() {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [zip, setZip] = useState('');
-  const [cardName, setCardName] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-
   // UI Flow State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'form' | 'success'>('form');
   const [generatedOrderId, setGeneratedOrderId] = useState('');
   const [generatedTracking, setGeneratedTracking] = useState('');
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/addresses')
@@ -79,7 +138,7 @@ export default function CheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !address || !city || !state || !zip || !cardNumber) {
+    if (!name || !email || !address || !city || !state || !zip) {
       alert('Please fill in all required fields');
       return;
     }
@@ -89,8 +148,14 @@ export default function CheckoutPage() {
     }
 
     setIsSubmitting(true);
+    setPaymentError(null);
 
     try {
+      const razorpayLoaded = await loadRazorpayScript();
+      if (!razorpayLoaded || !window.Razorpay) {
+        throw new Error('Razorpay Checkout could not be loaded');
+      }
+
       const addressPayload = {
         id: selectedAddressId || undefined,
         fullName: name,
@@ -108,26 +173,72 @@ export default function CheckoutPage() {
         body: JSON.stringify(addressPayload),
       });
 
-      const res = await fetch('/api/orders', {
+      const res = await fetch('/api/payments/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           address: addressPayload,
           items: cart,
+          idempotencyKey: getCheckoutIdempotencyKey(),
         }),
       });
 
-      if (!res.ok) throw new Error('Order failed');
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Payment order failed');
+      }
 
       const data = await res.json();
-      setGeneratedOrderId(data.order.id);
-      setGeneratedTracking(data.order.trackingNumber);
-      setIsSubmitting(false);
-      setCheckoutStep('success');
-      clearCart();
+      const razorpay = new window.Razorpay({
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
+        amount: data.order.amount,
+        currency: data.order.currency,
+        name: 'Mithila Heritage Gallery',
+        description: `Order ${data.order.id}`,
+        order_id: data.order.razorpayOrderId,
+        prefill: {
+          name,
+          email,
+        },
+        theme: {
+          color: '#9f5138',
+        },
+        handler: async (response) => {
+          try {
+            const verifyRes = await fetch('/api/payments/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(response),
+            });
+
+            if (!verifyRes.ok) {
+              const error = await verifyRes.json();
+              throw new Error(error.error || 'Payment verification failed');
+            }
+
+            setGeneratedOrderId(data.order.id);
+            setGeneratedTracking('Tracking will be assigned after fulfillment review');
+            setCheckoutStep('success');
+            clearCart();
+            clearCheckoutIdempotencyKey();
+          } catch (error) {
+            setPaymentError(error instanceof Error ? error.message : 'Payment verification failed');
+          } finally {
+            setIsSubmitting(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setIsSubmitting(false);
+            setPaymentError('Payment was cancelled before completion.');
+          },
+        },
+      });
+
+      razorpay.open();
     } catch (error) {
       console.error('Checkout failed:', error);
-      alert('Could not place the order. Please try again.');
+      setPaymentError(error instanceof Error ? error.message : 'Could not start payment. Please try again.');
       setIsSubmitting(false);
     }
   };
@@ -253,6 +364,11 @@ export default function CheckoutPage() {
         <p className="text-sm text-foreground/60 mt-1.5">
           Enter shipping addresses and finalize patron certificate records.
         </p>
+        {paymentError && (
+          <p className="mt-4 rounded-lg border border-madhubani-vermillion/25 bg-madhubani-vermillion/10 px-4 py-3 text-xs font-semibold text-madhubani-vermillion">
+            {paymentError}
+          </p>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
@@ -372,62 +488,25 @@ export default function CheckoutPage() {
             <div className="absolute inset-2 border border-foreground/5 rounded-lg pointer-events-none" />
 
             <h3 className="font-serif text-xl font-bold text-foreground border-b border-border pb-4 mb-6 flex items-center gap-2 relative z-10">
-              <CreditCard className="h-5 w-5 text-accent" /> Payment Verification
+              <CreditCard className="h-5 w-5 text-accent" /> Razorpay Secure Payment
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-10 text-xs font-semibold uppercase tracking-wide font-sans">
-              <div className="space-y-2 col-span-1 md:col-span-2">
-                <label htmlFor="cardName" className="text-foreground/70">Cardholder Name</label>
-                <input
-                  id="cardName"
-                  type="text"
-                  placeholder="Aanya Verma"
-                  value={cardName}
-                  onChange={(e) => setCardName(e.target.value)}
-                  className="w-full border border-border bg-background/50 px-4 py-3 text-sm font-sans normal-case rounded-lg focus:outline-none focus:border-accent"
-                  required
-                />
-              </div>
+            <p className="relative z-10 text-sm text-foreground/65 leading-relaxed">
+              Payment opens in Razorpay Checkout. UPI, cards, wallets, and netbanking are handled by Razorpay; this website never stores card details.
+            </p>
+          </div>
 
-              <div className="space-y-2 col-span-1 md:col-span-2">
-                <label htmlFor="cardNumber" className="text-foreground/70">Credit Card Number</label>
-                <input
-                  id="cardNumber"
-                  type="text"
-                  placeholder="4111 2222 3333 4444"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                  className="w-full border border-border bg-background/50 px-4 py-3 text-sm font-sans normal-case rounded-lg focus:outline-none focus:border-accent"
-                  required
-                />
-              </div>
+          {/* Payment Form */}
+          <div className="glass-panel p-6 md:p-8 rounded-xl border relative">
+            <div className="absolute inset-2 border border-foreground/5 rounded-lg pointer-events-none" />
 
-              <div className="space-y-2">
-                <label htmlFor="cardExpiry" className="text-foreground/70">Expiration Date</label>
-                <input
-                  id="cardExpiry"
-                  type="text"
-                  placeholder="MM / YY"
-                  value={cardExpiry}
-                  onChange={(e) => setCardExpiry(e.target.value)}
-                  className="w-full border border-border bg-background/50 px-4 py-3 text-sm font-sans normal-case rounded-lg focus:outline-none focus:border-accent"
-                  required
-                />
-              </div>
+            <h3 className="font-serif text-xl font-bold text-foreground border-b border-border pb-4 mb-6 flex items-center gap-2 relative z-10">
+              <CreditCard className="h-5 w-5 text-accent" /> Razorpay Secure Payment
+            </h3>
 
-              <div className="space-y-2">
-                <label htmlFor="cardCvv" className="text-foreground/70">CVV Code</label>
-                <input
-                  id="cardCvv"
-                  type="password"
-                  placeholder="•••"
-                  value={cardCvv}
-                  onChange={(e) => setCardCvv(e.target.value)}
-                  className="w-full border border-border bg-background/50 px-4 py-3 text-sm font-sans normal-case rounded-lg focus:outline-none focus:border-accent"
-                  required
-                />
-              </div>
-            </div>
+            <p className="relative z-10 text-sm text-foreground/65 leading-relaxed">
+              Payment opens in Razorpay Checkout. UPI, cards, wallets, and netbanking are handled by Razorpay; this website never stores card details.
+            </p>
           </div>
         </div>
 
@@ -491,9 +570,10 @@ export default function CheckoutPage() {
             {/* Confirm button */}
             <button
               type="submit"
-              className="clickable w-full py-4 bg-madhubani-terracotta dark:bg-madhubani-mustard text-white dark:text-madhubani-soot rounded-lg font-serif text-sm font-bold tracking-widest hover:opacity-90 transition-opacity shadow-lg mt-6 flex justify-center items-center gap-2 relative z-10"
+              disabled={isSubmitting}
+              className="clickable w-full py-4 bg-madhubani-terracotta dark:bg-madhubani-mustard text-white dark:text-madhubani-soot rounded-lg font-serif text-sm font-bold tracking-widest hover:opacity-90 transition-opacity shadow-lg mt-6 flex justify-center items-center gap-2 relative z-10 disabled:opacity-60"
             >
-              CONFIRM ACQUISITION
+              {isSubmitting ? 'OPENING RAZORPAY...' : 'PAY NOW'}
             </button>
           </div>
         </div>

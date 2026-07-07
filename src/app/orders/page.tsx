@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { PackageCheck, ShoppingBag, Truck } from 'lucide-react';
+import { Download, PackageCheck, ShoppingBag, Truck } from 'lucide-react';
+
+const BRAND_LOGO_PATH = '/icon madhubni-Photoroom.png';
 
 interface Order {
   id: string;
   totalAmount: number;
   status: string;
   paymentStatus: string;
+  razorpayOrderId: string | null;
+  razorpayPaymentId: string | null;
   trackingNumber: string | null;
   createdAt: string;
   shippingAddress: {
@@ -26,12 +30,140 @@ interface Order {
   }>;
 }
 
+function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en-IN', {
     dateStyle: 'medium',
     timeStyle: 'short',
     hour12: true,
   }).format(new Date(value.replace(' ', 'T')));
+}
+
+function downloadReceipt(order: Order) {
+  const logoUrl = `${window.location.origin}${BRAND_LOGO_PATH.replaceAll(' ', '%20')}`;
+  const itemRows = order.items
+    .map((item) => {
+      const lineTotal = item.price * item.quantity;
+      return `
+        <tr>
+          <td>${escapeHtml(item.title)}</td>
+          <td>${escapeHtml(item.quantity)}</td>
+          <td>INR ${escapeHtml(item.price.toFixed(2))}</td>
+          <td>INR ${escapeHtml(lineTotal.toFixed(2))}</td>
+        </tr>
+      `;
+    })
+    .join('');
+
+  const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Mithila Receipt ${escapeHtml(order.id)}</title>
+    <style>
+      body { margin: 0; background: #f8f1df; color: #261f19; font-family: Arial, sans-serif; }
+      .sheet { max-width: 860px; margin: 28px auto; background: #fffaf0; border: 2px solid #261f19; padding: 28px; }
+      .double { border: 1px solid #261f19; padding: 24px; }
+      header { display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid #d8c7a5; padding-bottom: 20px; }
+      .brand { display: flex; align-items: center; gap: 14px; }
+      img { width: 76px; height: 76px; object-fit: contain; }
+      h1 { margin: 0; font-family: Georgia, serif; letter-spacing: 0.12em; color: #9f5138; }
+      h2 { margin: 24px 0 10px; font-family: Georgia, serif; }
+      .muted { color: #6d6257; font-size: 12px; line-height: 1.5; }
+      .pill { display: inline-block; border: 1px solid #9f5138; color: #9f5138; padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; }
+      .box { border: 1px solid #d8c7a5; padding: 14px; background: #fffdf7; }
+      .label { display: block; color: #6d6257; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 6px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+      th, td { border-bottom: 1px solid #d8c7a5; padding: 12px 8px; text-align: left; font-size: 13px; }
+      th { color: #6d6257; text-transform: uppercase; font-size: 10px; letter-spacing: 0.12em; }
+      .total { text-align: right; font-family: Georgia, serif; font-size: 24px; font-weight: 700; margin-top: 18px; }
+      footer { margin-top: 28px; padding-top: 16px; border-top: 1px solid #d8c7a5; font-size: 11px; color: #6d6257; }
+      @media print { body { background: white; } .sheet { margin: 0; border: none; } }
+    </style>
+  </head>
+  <body>
+    <main class="sheet">
+      <div class="double">
+        <header>
+          <div class="brand">
+            <img src="${logoUrl}" alt="Mithila Heritage Gallery" />
+            <div>
+              <h1>MITHILA</h1>
+              <div class="muted">Heritage Gallery / Payment Receipt</div>
+            </div>
+          </div>
+          <span class="pill">${escapeHtml(order.paymentStatus)}</span>
+        </header>
+
+        <section class="grid">
+          <div class="box">
+            <span class="label">Internal Order ID</span>
+            <strong>${escapeHtml(order.id)}</strong>
+          </div>
+          <div class="box">
+            <span class="label">Order Date</span>
+            <strong>${escapeHtml(formatDate(order.createdAt))}</strong>
+          </div>
+          <div class="box">
+            <span class="label">Razorpay Order ID</span>
+            <strong>${escapeHtml(order.razorpayOrderId || 'Pending')}</strong>
+          </div>
+          <div class="box">
+            <span class="label">Razorpay Payment ID</span>
+            <strong>${escapeHtml(order.razorpayPaymentId || 'Pending')}</strong>
+          </div>
+          <div class="box">
+            <span class="label">Fulfillment Status</span>
+            <strong>${escapeHtml(order.status)}</strong>
+          </div>
+          <div class="box">
+            <span class="label">Tracking</span>
+            <strong>${escapeHtml(order.trackingNumber || 'Pending')}</strong>
+          </div>
+        </section>
+
+        <h2>Shipping Address</h2>
+        <div class="box">
+          <strong>${escapeHtml(order.shippingAddress.fullName || 'Art Patron')}</strong><br />
+          ${escapeHtml(order.shippingAddress.address)}, ${escapeHtml(order.shippingAddress.city)}, ${escapeHtml(order.shippingAddress.state)} - ${escapeHtml(order.shippingAddress.zip)}
+        </div>
+
+        <h2>Purchased Artworks</h2>
+        <table>
+          <thead>
+            <tr><th>Artwork</th><th>Qty</th><th>Price</th><th>Total</th></tr>
+          </thead>
+          <tbody>${itemRows}</tbody>
+        </table>
+
+        <div class="total">Grand Total: INR ${escapeHtml(order.totalAmount.toFixed(2))}</div>
+
+        <footer>
+          This receipt confirms payment/order records held by Mithila Heritage Gallery. Certificates and artisan provenance documents are dispatched with eligible artwork shipments.
+        </footer>
+      </div>
+    </main>
+  </body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `mithila-receipt-${order.id}.html`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 export default function OrdersPage() {
@@ -104,6 +236,13 @@ export default function OrdersPage() {
                     <Truck className="h-3.5 w-3.5" />
                     {order.trackingNumber || 'Tracking pending'}
                   </p>
+                  <button
+                    onClick={() => downloadReceipt(order)}
+                    className="clickable mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-bold hover:bg-foreground/5"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download Receipt
+                  </button>
                 </div>
               </div>
               <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">

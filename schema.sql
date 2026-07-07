@@ -168,13 +168,17 @@ CREATE TABLE IF NOT EXISTS wishlist_items
 -- 11. Payments Table
 CREATE TABLE IF NOT EXISTS payments
     (
-        id             VARCHAR(36) PRIMARY KEY                       ,
-        order_id       VARCHAR(36) NOT NULL                          ,
-        payment_method VARCHAR(100) NOT NULL                         ,
-        status ENUM('PENDING', 'SUCCESS', 'FAILED') DEFAULT 'PENDING',
-        transaction_id VARCHAR(255) DEFAULT NULL UNIQUE              ,
-        amount         DECIMAL(10, 2) NOT NULL                       ,
-        created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP           ,
+        id                  VARCHAR(36) PRIMARY KEY                       ,
+        order_id            VARCHAR(36) NOT NULL                          ,
+        payment_method      VARCHAR(100) NOT NULL                         ,
+        status ENUM('PENDING', 'SUCCESS', 'FAILED') DEFAULT 'PENDING'     ,
+        transaction_id      VARCHAR(255) DEFAULT NULL UNIQUE              ,
+        razorpay_order_id   VARCHAR(255) DEFAULT NULL UNIQUE              ,
+        razorpay_payment_id VARCHAR(255) DEFAULT NULL UNIQUE              ,
+        razorpay_signature  VARCHAR(255) DEFAULT NULL                     ,
+        idempotency_key     VARCHAR(255) DEFAULT NULL UNIQUE              ,
+        amount              DECIMAL(10, 2) NOT NULL                       ,
+        created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP           ,
         FOREIGN KEY (order_id) REFERENCES orders(id) ON
         DELETE
             CASCADE,

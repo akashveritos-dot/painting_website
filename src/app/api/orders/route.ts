@@ -2,14 +2,6 @@ import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth-server';
 import { dbQuery } from '@/lib/db';
 
-interface CartPayloadItem {
-  productId: string;
-  title: string;
-  price: number;
-  salePrice: number | null;
-  quantity: number;
-}
-
 interface OrderRow {
   id: string;
   userId: string;
@@ -18,6 +10,8 @@ interface OrderRow {
   totalAmount: number;
   status: string;
   paymentStatus: string;
+  razorpayOrderId: string | null;
+  razorpayPaymentId: string | null;
   shippingAddress: string;
   trackingNumber: string | null;
   createdAt: string;
@@ -31,14 +25,6 @@ interface OrderItemRow {
   price: number;
 }
 
-function formatOrderId() {
-  return `MHG-ORD-${Math.floor(100000 + Math.random() * 900000)}`;
-}
-
-function formatTrackingNumber() {
-  return `MITHILA-SHIP-${Math.floor(10000000 + Math.random() * 90000000)}IN`;
-}
-
 async function fetchOrders(admin: boolean, userId: string) {
   const orderSql = `
     SELECT
@@ -49,11 +35,14 @@ async function fetchOrders(admin: boolean, userId: string) {
       CAST(o.total_amount AS DOUBLE) AS totalAmount,
       o.status,
       o.payment_status AS paymentStatus,
+      pay.razorpay_order_id AS razorpayOrderId,
+      pay.razorpay_payment_id AS razorpayPaymentId,
       o.shipping_address AS shippingAddress,
       o.tracking_number AS trackingNumber,
       DATE_FORMAT(o.created_at, '%Y-%m-%d %H:%i:%s') AS createdAt
     FROM orders o
     JOIN users u ON o.user_id = u.id
+    LEFT JOIN payments pay ON pay.order_id = o.id
     ${admin ? '' : 'WHERE o.user_id = ?'}
     ORDER BY o.created_at DESC
   `;
@@ -98,72 +87,11 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
-  const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Please sign in before ordering' }, { status: 401 });
-  }
-
-  try {
-    const body = await request.json();
-    const items = (body.items || []) as CartPayloadItem[];
-    if (items.length === 0) {
-      return NextResponse.json({ error: 'Cart is empty' }, { status: 400 });
-    }
-
-    const subtotal = items.reduce((sum, item) => {
-      const price = item.salePrice ?? item.price;
-      return sum + price * item.quantity;
-    }, 0);
-    const tax = subtotal * 0.08;
-    const shipping = subtotal > 250 ? 0 : 20;
-    const total = subtotal + tax + shipping;
-    const orderId = formatOrderId();
-    const trackingNumber = formatTrackingNumber();
-    const shippingAddress = JSON.stringify(body.address);
-
-    await dbQuery(
-      `INSERT INTO orders (
-        id, user_id, total_amount, status, payment_status, shipping_address,
-        billing_address, tax_amount, shipping_amount, tracking_number
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        orderId,
-        user.id,
-        total,
-        'PENDING',
-        'SUCCESS',
-        shippingAddress,
-        shippingAddress,
-        tax,
-        shipping,
-        trackingNumber,
-      ]
-    );
-
-    for (const item of items) {
-      await dbQuery(
-        'INSERT INTO order_items (id, order_id, product_id, quantity, price) VALUES (?, ?, ?, ?, ?)',
-        [crypto.randomUUID(), orderId, item.productId, item.quantity, item.salePrice ?? item.price]
-      );
-      await dbQuery('UPDATE products SET stock = GREATEST(stock - ?, 0) WHERE id = ?', [item.quantity, item.productId]);
-    }
-
-    return NextResponse.json({
-      order: {
-        id: orderId,
-        totalAmount: total,
-        status: 'PENDING',
-        paymentStatus: 'SUCCESS',
-        trackingNumber,
-        shippingAddress: body.address,
-        items,
-      },
-    }, { status: 201 });
-  } catch (error) {
-    console.error('Order create failed:', error);
-    return NextResponse.json({ error: 'Failed to place order' }, { status: 500 });
-  }
+export async function POST() {
+  return NextResponse.json(
+    { error: 'Create orders through /api/payments/create-order' },
+    { status: 405 }
+  );
 }
 
 export async function PATCH(request: Request) {

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function Footer() {
   return (
@@ -12,9 +13,17 @@ export default function Footer() {
           
           {/* Brand block */}
           <div className="flex flex-col gap-4">
-            <span className="font-serif text-2xl font-bold tracking-widest text-madhubani-terracotta dark:text-madhubani-mustard">
-              MITHILA
-            </span>
+            <div className="flex items-center">
+              <span className="relative block h-20 w-20">
+                <Image
+                  src="/icon madhubni-Photoroom.png"
+                  alt="Mithila Heritage Gallery logo"
+                  fill
+                  sizes="80px"
+                  className="object-contain"
+                />
+              </span>
+            </div>
             <p className="font-sans text-sm leading-relaxed text-foreground/75">
               Preserving and presenting the authentic heritage of Madhubani (Mithila) art. Every painting is hand-colored with natural pigments on handmade paper, supporting traditional artisans in Bihar.
             </p>

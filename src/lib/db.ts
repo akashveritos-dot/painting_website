@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import mysql from 'mysql2/promise';
 
 // Establish a connection pool to MySQL
@@ -22,9 +23,28 @@ export async function dbQuery<T = any>(sql: string, params?: any[]): Promise<T> 
   try {
     const [results] = await pool.execute(sql, params);
     return results as T;
-  } catch (error: any) {
-    console.error(`Database query failed: ${error.message} \nQuery: ${sql}`);
-    throw new Error(`Database execution error: ${error.message}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown database error';
+    console.error(`Database query failed: ${message} \nQuery: ${sql}`);
+    throw new Error(`Database execution error: ${message}`);
+  }
+}
+
+export async function dbTransaction<T>(
+  callback: (connection: mysql.PoolConnection) => Promise<T>
+): Promise<T> {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+    const result = await callback(connection);
+    await connection.commit();
+    return result;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
   }
 }
 

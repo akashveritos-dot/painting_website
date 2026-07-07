@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
@@ -69,14 +70,18 @@ export default function Navbar() {
 
   return (
     <header className="glass-panel sticky top-0 z-40 w-full border-b transition-all duration-300">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
         {/* Heritage Logo */}
-        <Link href="/" className="group flex flex-col items-start gap-0">
-          <span className="font-serif text-2xl font-bold tracking-widest text-madhubani-terracotta dark:text-madhubani-mustard transition-colors duration-300">
-            MITHILA
-          </span>
-          <span className="font-sans text-[10px] font-semibold tracking-[0.3em] uppercase text-foreground/70 -mt-1 group-hover:text-accent transition-colors duration-300">
-            Heritage Gallery
+        <Link href="/" className="group flex items-center" aria-label="Mithila Heritage Gallery home">
+          <span className="relative block h-28 w-28 translate-y-3 sm:h-32 sm:w-32">
+            <Image
+              src="/icon madhubni-Photoroom.png"
+              alt="Mithila Heritage Gallery logo"
+              fill
+              sizes="(min-width: 640px) 128px, 112px"
+              className="object-contain"
+              priority
+            />
           </span>
         </Link>
 

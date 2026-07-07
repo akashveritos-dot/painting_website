@@ -10,6 +10,8 @@ interface AdminOrder {
   totalAmount: number;
   status: string;
   paymentStatus: string;
+  razorpayOrderId: string | null;
+  razorpayPaymentId: string | null;
   trackingNumber: string | null;
   createdAt: string;
   shippingAddress: {
@@ -112,6 +114,9 @@ export default function AdminOrdersPage() {
                   <p className="mt-3 text-sm font-semibold">{order.customerName || 'Customer'} / {order.customerEmail}</p>
                   <p className="mt-1 text-xs text-foreground/65 leading-relaxed">
                     {order.shippingAddress.address}, {order.shippingAddress.city}, {order.shippingAddress.state} - {order.shippingAddress.zip}
+                  </p>
+                  <p className="mt-2 text-xs text-foreground/55">
+                    Razorpay Order: {order.razorpayOrderId || 'Pending'} / Payment: {order.razorpayPaymentId || 'Pending'}
                   </p>
                 </div>
                 <div className="text-left xl:text-right">
