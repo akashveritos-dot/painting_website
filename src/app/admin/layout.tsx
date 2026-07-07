@@ -77,15 +77,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   ];
 
   return (
-    <div className="mx-auto max-w-7xl w-full px-6 py-12 md:py-16 grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+    <div className="mx-auto max-w-7xl w-full px-6 py-8 lg:py-16 grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-10 items-start">
       
       {/* Sidebar Navigation */}
-      <aside className="md:col-span-3 space-y-4">
-        <div className="glass-panel p-5 rounded-xl border">
-          <span className="font-sans text-[10px] font-bold text-foreground/50 uppercase tracking-widest block mb-4">
+      <aside className="md:col-span-4 lg:col-span-3 md:sticky md:top-8 space-y-4 z-20">
+        <div className="glass-panel p-5 rounded-xl border shadow-sm relative">
+          <div className="absolute inset-1.5 border border-foreground/5 rounded-lg pointer-events-none" />
+          <span className="font-sans text-[10px] font-bold text-foreground/50 uppercase tracking-widest block mb-4 relative z-10">
             Curator Actions
           </span>
-          <nav className="space-y-1 text-xs font-semibold uppercase tracking-wide font-sans">
+          <nav className="space-y-1 text-xs font-semibold uppercase tracking-wide font-sans relative z-10">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href;
@@ -93,10 +94,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2.5 px-4 py-3 rounded-lg transition-all ${
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-lg transition-all duration-300 transform ${
                     active
-                      ? 'bg-madhubani-terracotta dark:bg-madhubani-mustard text-white dark:text-madhubani-soot font-bold'
-                      : 'hover:bg-foreground/5 text-foreground/75'
+                      ? 'bg-madhubani-terracotta dark:bg-madhubani-mustard text-white dark:text-madhubani-soot font-bold shadow-md shadow-madhubani-terracotta/20 dark:shadow-madhubani-mustard/15 translate-x-1'
+                      : 'hover:bg-foreground/5 text-foreground/75 hover:translate-x-1'
                   }`}
                 >
                   <Icon className="h-4.5 w-4.5" />
@@ -109,14 +110,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         <Link
           href="/"
-          className="clickable flex items-center justify-center gap-1.5 px-4 py-3 border border-border bg-card/25 rounded-lg text-xs font-bold font-sans uppercase tracking-wider text-foreground/70 hover:text-foreground"
+          className="clickable flex items-center justify-center gap-1.5 px-4 py-3 border border-border bg-card/25 rounded-lg text-xs font-bold font-sans uppercase tracking-wider text-foreground/70 hover:text-foreground transition-colors duration-300"
         >
           <ArrowLeft className="h-4 w-4" /> Exit Console
         </Link>
       </aside>
 
       {/* Main Content Workspace */}
-      <main className="md:col-span-9">
+      <main className="md:col-span-8 lg:col-span-9 space-y-6">
         {children}
       </main>
 

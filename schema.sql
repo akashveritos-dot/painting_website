@@ -15,11 +15,15 @@ CREATE TABLE IF NOT EXISTS users
 -- 2. Sessions Table
 CREATE TABLE IF NOT EXISTS sessions
     (
-        id            VARCHAR(36) PRIMARY KEY     ,
-        session_token VARCHAR(255) NOT NULL UNIQUE,
-        user_id       VARCHAR(36) NOT NULL        ,
-        expires       DATETIME NOT NULL           ,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON
+        id            VARCHAR(36) PRIMARY KEY            ,
+        session_token VARCHAR(255) NOT NULL UNIQUE       ,
+        user_id       VARCHAR(36) NOT NULL               ,
+        expires       DATETIME NOT NULL                  ,
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON
+        UPDATE
+            CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON
         DELETE
             CASCADE,
             INDEX idx_session_user (user_id) ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -68,13 +72,17 @@ CREATE TABLE IF NOT EXISTS products
             INDEX idx_product_category (category_id),
             INDEX idx_product_slug (slug)           ,
             INDEX idx_product_sku (sku) ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
--- 5. Product Images Table (For multiple resolutions / variants)
+-- 5. Product Images Table
 CREATE TABLE IF NOT EXISTS product_images
     (
-        id         VARCHAR(36) PRIMARY KEY,
-        url        VARCHAR(255) NOT NULL  ,
-        product_id VARCHAR(36) NOT NULL   ,
-        FOREIGN KEY (product_id) REFERENCES products(id) ON
+        id         VARCHAR(36) PRIMARY KEY            ,
+        url        VARCHAR(255) NOT NULL              ,
+        product_id VARCHAR(36) NOT NULL               ,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON
+        UPDATE
+            CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES products(id) ON
         DELETE
             CASCADE,
             INDEX idx_image_product (product_id) ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -89,9 +97,10 @@ CREATE TABLE IF NOT EXISTS coupons
         expiry_date                                   DATETIME NOT NULL                  ,
         active                                        BOOLEAN DEFAULT TRUE               ,
         created_at                                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_coupon_code (code)
-    )
-ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        updated_at                                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON
+        UPDATE
+            CURRENT_TIMESTAMP,
+            INDEX idx_coupon_code (code) ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- 7. Orders Table
 CREATE TABLE IF NOT EXISTS orders
     (
@@ -118,12 +127,16 @@ CREATE TABLE IF NOT EXISTS orders
 -- 8. Order Items Table
 CREATE TABLE IF NOT EXISTS order_items
     (
-        id         VARCHAR(36) PRIMARY KEY,
-        order_id   VARCHAR(36) NOT NULL   ,
-        product_id VARCHAR(36) NOT NULL   ,
-        quantity   INT NOT NULL           ,
-        price      DECIMAL(10, 2) NOT NULL,
-        FOREIGN KEY (order_id) REFERENCES orders(id) ON
+        id         VARCHAR(36) PRIMARY KEY            ,
+        order_id   VARCHAR(36) NOT NULL               ,
+        product_id VARCHAR(36) NOT NULL               ,
+        quantity   INT NOT NULL                       ,
+        price      DECIMAL(10, 2) NOT NULL            ,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON
+        UPDATE
+            CURRENT_TIMESTAMP,
+            FOREIGN KEY (order_id) REFERENCES orders(id) ON
         DELETE
             CASCADE,
             FOREIGN KEY (product_id) REFERENCES products(id) ON
@@ -157,7 +170,10 @@ CREATE TABLE IF NOT EXISTS wishlist_items
         user_id    VARCHAR(36) NOT NULL               ,
         product_id VARCHAR(36) NOT NULL               ,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON
+        UPDATE
+            CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON
         DELETE
             CASCADE,
             FOREIGN KEY (product_id) REFERENCES products(id) ON
@@ -168,18 +184,21 @@ CREATE TABLE IF NOT EXISTS wishlist_items
 -- 11. Payments Table
 CREATE TABLE IF NOT EXISTS payments
     (
-        id             VARCHAR(36) PRIMARY KEY                        ,
-        order_id       VARCHAR(36) NOT NULL                           ,
-        payment_method VARCHAR(100) NOT NULL                          ,
-        status ENUM('PENDING', 'SUCCESS', 'FAILED') DEFAULT 'PENDING' ,
-        transaction_id      VARCHAR(255) DEFAULT NULL UNIQUE          ,
-        razorpay_order_id   VARCHAR(255) DEFAULT NULL UNIQUE          ,
-        razorpay_payment_id VARCHAR(255) DEFAULT NULL UNIQUE          ,
-        razorpay_signature  VARCHAR(255) DEFAULT NULL                 ,
-        idempotency_key     VARCHAR(255) DEFAULT NULL UNIQUE          ,
-        amount              DECIMAL(10, 2) NOT NULL                   ,
-        created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP       ,
-        FOREIGN KEY (order_id) REFERENCES orders(id) ON
+        id             VARCHAR(36) PRIMARY KEY                       ,
+        order_id       VARCHAR(36) NOT NULL                          ,
+        payment_method VARCHAR(100) NOT NULL                         ,
+        status ENUM('PENDING', 'SUCCESS', 'FAILED') DEFAULT 'PENDING',
+        transaction_id      VARCHAR(255) DEFAULT NULL UNIQUE         ,
+        razorpay_order_id   VARCHAR(255) DEFAULT NULL UNIQUE         ,
+        razorpay_payment_id VARCHAR(255) DEFAULT NULL UNIQUE         ,
+        razorpay_signature  VARCHAR(255) DEFAULT NULL                ,
+        idempotency_key     VARCHAR(255) DEFAULT NULL UNIQUE         ,
+        amount              DECIMAL(10, 2) NOT NULL                  ,
+        created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP      ,
+        updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON
+        UPDATE
+            CURRENT_TIMESTAMP,
+            FOREIGN KEY (order_id) REFERENCES orders(id) ON
         DELETE
             CASCADE,
             INDEX idx_payment_order (order_id) ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -192,7 +211,10 @@ CREATE TABLE IF NOT EXISTS reviews
         rating     INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
         comment    TEXT NOT NULL                                   ,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP             ,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON
+        UPDATE
+            CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON
         DELETE
             CASCADE,
             FOREIGN KEY (product_id) REFERENCES products(id) ON
@@ -208,18 +230,23 @@ CREATE TABLE IF NOT EXISTS activity_logs
         action     VARCHAR(255) NOT NULL              ,
         details    TEXT NOT NULL                      ,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON
+        UPDATE
+            CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON
         DELETE
             CASCADE,
             INDEX idx_log_user (user_id) ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- 14. Website Settings Table
 CREATE TABLE IF NOT EXISTS website_settings
     (
-        id            VARCHAR(36) PRIMARY KEY     ,
-        setting_key   VARCHAR(100) NOT NULL UNIQUE,
-        setting_value TEXT NOT NULL
-    )
-ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        id            VARCHAR(36) PRIMARY KEY            ,
+        setting_key   VARCHAR(100) NOT NULL UNIQUE       ,
+        setting_value TEXT NOT NULL                      ,
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON
+        UPDATE
+            CURRENT_TIMESTAMP ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- 15. Blogs Table
 CREATE TABLE IF NOT EXISTS blogs
     (
@@ -243,9 +270,10 @@ CREATE TABLE IF NOT EXISTS contact_requests
         email   VARCHAR(255) NOT NULL                            ,
         message TEXT NOT NULL                                    ,
         status ENUM('UNREAD', 'READ', 'REPLIED') DEFAULT 'UNREAD',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP           ,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON
+        UPDATE
+            CURRENT_TIMESTAMP ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 -- 17. Saved Addresses Table
 CREATE TABLE IF NOT EXISTS saved_addresses
     (
