@@ -3,7 +3,6 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import CustomCursor from '@/components/ui/custom-cursor';
 import ActionFeedback from '@/components/ui/action-feedback';
 
 export const metadata: Metadata = {
@@ -40,8 +39,6 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {/* Immersive cursor interaction trail */}
-          <CustomCursor />
           <ActionFeedback />
           
           {/* Header navigation bar */}

@@ -103,22 +103,6 @@ body {
   transition: background-color 0.5s ease, color 0.5s ease;
 }
 
-@media (pointer: fine) {
-  .custom-cursor-ready body,
-  .custom-cursor-ready a,
-  .custom-cursor-ready button,
-  .custom-cursor-ready .clickable {
-    cursor: none;
-  }
-
-  .custom-cursor-ready input,
-  .custom-cursor-ready textarea,
-  .custom-cursor-ready select,
-  .custom-cursor-ready [contenteditable='true'] {
-    cursor: auto;
-  }
-}
-
 /* Custom Heritage Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -210,68 +194,6 @@ body {
 .btn-heritage:hover {
   background-color: transparent;
   color: var(--accent);
-}
-
-.heritage-cursor {
-  filter: drop-shadow(0 8px 18px color-mix(in oklch, var(--accent) 22%, transparent));
-  transform-origin: center;
-}
-
-.heritage-cursor__ring {
-  position: absolute;
-  inset: 0;
-  border: 1px solid color-mix(in oklch, var(--accent) 82%, var(--foreground));
-  border-radius: 999px 999px 999px 8px;
-  background:
-    radial-gradient(circle at 50% 50%, transparent 42%, color-mix(in oklch, var(--accent) 12%, transparent) 43% 56%, transparent 57%),
-    repeating-linear-gradient(45deg, transparent 0 4px, color-mix(in oklch, var(--foreground) 14%, transparent) 4px 5px);
-  transform: rotate(-45deg);
-}
-
-.heritage-cursor__ring::before {
-  content: '';
-  position: absolute;
-  inset: 5px;
-  border: 1px solid color-mix(in oklch, var(--foreground) 42%, transparent);
-  border-radius: inherit;
-}
-
-.heritage-cursor__petal {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 5px;
-  height: 9px;
-  border-radius: 999px 999px 2px 2px;
-  background: var(--color-madhubani-mustard);
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--foreground) 28%, transparent);
-  transform-origin: center;
-}
-
-.heritage-cursor__petal--top {
-  transform: translate(-50%, -22px);
-}
-
-.heritage-cursor__petal--right {
-  transform: translate(17px, -50%) rotate(90deg);
-  background: var(--color-madhubani-terracotta);
-}
-
-.heritage-cursor__petal--bottom {
-  transform: translate(-50%, 13px) rotate(180deg);
-}
-
-.heritage-cursor__petal--left {
-  transform: translate(-22px, -50%) rotate(-90deg);
-  background: var(--color-madhubani-forest);
-}
-
-.heritage-cursor-dot {
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow:
-    0 0 0 3px color-mix(in oklch, var(--background) 75%, transparent),
-    0 0 0 5px color-mix(in oklch, var(--foreground) 18%, transparent);
 }
 
 .mithila-ambient {

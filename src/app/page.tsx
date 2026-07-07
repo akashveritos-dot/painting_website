@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,6 +30,93 @@ function toCartItem(product: Product) {
     featuredImage: product.featuredImage,
     stock: product.stock,
   };
+}
+
+function splitStatValue(value: string) {
+  const match = value.trim().match(/^([^0-9]*)([\d,]+)(.*)$/);
+
+  if (!match) {
+    return { prefix: '', target: 0, suffix: value };
+  }
+
+  return {
+    prefix: match[1],
+    target: Number(match[2].replace(/,/g, '')) || 0,
+    suffix: match[3],
+  };
+}
+
+function AnimatedStat({ value, label, delay = 0 }: { value: string; label: string; delay?: number }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const { prefix, target, suffix } = splitStatValue(value);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.35 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (prefersReducedMotion || target === 0) {
+      setCurrent(target);
+      return;
+    }
+
+    let frameId = 0;
+    let startTime: number | null = null;
+    const duration = 1200;
+
+    const tick = (time: number) => {
+      if (startTime === null) startTime = time + delay;
+
+      const progress = Math.min(Math.max((time - startTime) / duration, 0), 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+
+      setCurrent(Math.round(target * eased));
+
+      if (progress < 1) {
+        frameId = requestAnimationFrame(tick);
+      }
+    };
+
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [delay, target, visible]);
+
+  const displayValue = target > 0 ? `${prefix}${current.toLocaleString('en-US')}${suffix}` : value;
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 22 }}
+      animate={visible ? { opacity: 1, y: 0 } : undefined}
+      transition={{ duration: 0.55, delay: delay / 1000, ease: [0.16, 1, 0.3, 1] }}
+      className="flex flex-col gap-1"
+    >
+      <span className="font-serif text-4xl md:text-5xl font-bold text-madhubani-mustard">
+        {displayValue}
+      </span>
+      <span className="font-sans text-xs uppercase tracking-widest text-white/70">{label}</span>
+    </motion.div>
+  );
 }
 
 export default function HomePage() {
@@ -338,22 +425,10 @@ export default function HomePage() {
       {/* 4. STATISTICS COUNTER */}
       <section className="bg-madhubani-terracotta text-white dark:bg-linen-dark dark:border-t border-border py-16">
         <div className="mx-auto max-w-7xl px-6 grid grid-cols-2 gap-8 md:grid-cols-4 text-center">
-          <div className="flex flex-col gap-1">
-            <span className="font-serif text-4xl md:text-5xl font-bold text-madhubani-mustard">20+</span>
-            <span className="font-sans text-xs uppercase tracking-widest text-white/70">Master Artisans</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="font-serif text-4xl md:text-5xl font-bold text-madhubani-mustard">100%</span>
-            <span className="font-sans text-xs uppercase tracking-widest text-white/70">Organic Pigments</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="font-serif text-4xl md:text-5xl font-bold text-madhubani-mustard">15+</span>
-            <span className="font-sans text-xs uppercase tracking-widest text-white/70">Villages Supported</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="font-serif text-4xl md:text-5xl font-bold text-madhubani-mustard">1,200+</span>
-            <span className="font-sans text-xs uppercase tracking-widest text-white/70">Paintings Shipped</span>
-          </div>
+          <AnimatedStat value={homeContent.stat1Value} label={homeContent.stat1Label} />
+          <AnimatedStat value={homeContent.stat2Value} label={homeContent.stat2Label} delay={90} />
+          <AnimatedStat value={homeContent.stat3Value} label={homeContent.stat3Label} delay={180} />
+          <AnimatedStat value={homeContent.stat4Value} label={homeContent.stat4Label} delay={270} />
         </div>
       </section>
 

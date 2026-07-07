@@ -40,6 +40,26 @@ const FIELD_GROUPS: Array<{
     fields: [
       { key: 'exhibitionTitle', label: 'Exhibition Title' },
       { key: 'exhibitionDescription', label: 'Exhibition Description', type: 'textarea' },
+    ],
+  },
+  {
+    title: 'Animated Impact Stats',
+    description: 'Controls the four counters shown on the homepage.',
+    fields: [
+      { key: 'stat1Value', label: 'Stat 1 Number' },
+      { key: 'stat1Label', label: 'Stat 1 Label' },
+      { key: 'stat2Value', label: 'Stat 2 Number' },
+      { key: 'stat2Label', label: 'Stat 2 Label' },
+      { key: 'stat3Value', label: 'Stat 3 Number' },
+      { key: 'stat3Label', label: 'Stat 3 Label' },
+      { key: 'stat4Value', label: 'Stat 4 Number' },
+      { key: 'stat4Label', label: 'Stat 4 Label' },
+    ],
+  },
+  {
+    title: 'Trust Section',
+    description: 'Guarantee copy shown near the bottom of the homepage.',
+    fields: [
       { key: 'trustTitle', label: 'Trust Section Title' },
       { key: 'trustDescription', label: 'Trust Section Description', type: 'textarea' },
     ],
