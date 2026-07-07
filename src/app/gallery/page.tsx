@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -32,7 +32,26 @@ function toCartItem(product: Product) {
   };
 }
 
-export default function GalleryPage() {
+function GalleryFallback() {
+  return (
+    <div className="mx-auto max-w-7xl w-full px-6 py-12 md:py-20">
+      <div className="mb-12 text-center max-w-xl mx-auto">
+        <h1 className="font-serif text-3xl md:text-5xl font-bold text-foreground">Exhibition Showroom</h1>
+        <p className="text-sm text-foreground/60 mt-3 leading-relaxed">
+          Acquire signed heritage paintings from Mithila artisans. Hand-painted with natural plant dyes on handmade canvas sheets.
+        </p>
+      </div>
+      <div className="glass-panel p-4 md:p-6 rounded-xl border mb-12 shadow-sm h-20 animate-pulse" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        {[1, 2].map((i) => (
+          <div key={i} className="glass-panel aspect-[4/5] rounded-xl animate-pulse" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GalleryContent() {
   const searchParams = useSearchParams();
   const catParam = searchParams.get('category') || 'all';
 
@@ -43,6 +62,10 @@ export default function GalleryPage() {
   const [sortBy, setSortBy] = useState('featured');
 
   const { addToCart, addToWishlist, wishlist } = useAppStore();
+
+  useEffect(() => {
+    setSelectedCategory(catParam);
+  }, [catParam]);
 
   useEffect(() => {
     fetch('/api/products')
@@ -259,5 +282,13 @@ export default function GalleryPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function GalleryPage() {
+  return (
+    <Suspense fallback={<GalleryFallback />}>
+      <GalleryContent />
+    </Suspense>
   );
 }
