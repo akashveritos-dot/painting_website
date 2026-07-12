@@ -10,7 +10,8 @@ import {
   ArrowLeft,
   Truck,
   MessageSquare,
-  Sliders 
+  Sliders,
+  Palette
 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -71,6 +72,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const navItems = [
     { href: '/admin/dashboard', name: 'Overview Analytics', icon: LayoutDashboard },
     { href: '/admin/products', name: 'Manage Paintings', icon: ShoppingBag },
+    { href: '/admin/catalog', name: 'Artists & Collections', icon: Palette },
     { href: '/admin/orders', name: 'Review Orders', icon: Truck },
     { href: '/admin/contacts', name: 'Contact Inbox', icon: MessageSquare },
     { href: '/admin/content', name: 'Page Content', icon: Sliders },
