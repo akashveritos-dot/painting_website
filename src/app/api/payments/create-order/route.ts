@@ -3,6 +3,7 @@ import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { getSessionUser } from '@/lib/auth-server';
 import { dbQuery, dbTransaction } from '@/lib/db';
 import { createRazorpayOrder } from '@/lib/razorpay';
+import { computeTotals, type PricingCoupon } from '@/lib/pricing';
 
 interface CartPayloadItem {
   productId: string;
@@ -25,29 +26,21 @@ interface ExistingPaymentRow extends RowDataPacket {
   status: string;
 }
 
+interface CouponRow extends RowDataPacket {
+  code: string;
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discountValue: number;
+  minOrderAmount: number;
+  expiryDate: string;
+  active: number;
+}
+
 function generateInternalOrderId() {
   return `MHG-ORD-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 }
 
 function generateTrackingNumber() {
   return `MITHILA-SHIP-${Math.floor(10000000 + Math.random() * 90000000)}IN`;
-}
-
-async function ensurePaymentColumns() {
-  const alters = [
-    'ALTER TABLE payments ADD COLUMN razorpay_order_id VARCHAR(255) DEFAULT NULL UNIQUE',
-    'ALTER TABLE payments ADD COLUMN razorpay_payment_id VARCHAR(255) DEFAULT NULL UNIQUE',
-    'ALTER TABLE payments ADD COLUMN razorpay_signature VARCHAR(255) DEFAULT NULL',
-    'ALTER TABLE payments ADD COLUMN idempotency_key VARCHAR(255) DEFAULT NULL UNIQUE',
-  ];
-
-  for (const statement of alters) {
-    try {
-      await dbQuery(statement);
-    } catch {
-      // Column or index already exists.
-    }
-  }
 }
 
 export async function POST(request: Request) {
@@ -57,10 +50,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    await ensurePaymentColumns();
     const body = await request.json();
     const items = (body.items || []) as CartPayloadItem[];
     const idempotencyKey = String(body.idempotencyKey || '');
+    const couponCode = String(body.couponCode || '').trim().toUpperCase();
 
     if (!idempotencyKey) {
       return NextResponse.json({ error: 'Idempotency key is required' }, { status: 400 });
@@ -122,26 +115,54 @@ export async function POST(request: Request) {
         subtotal += (product.salePrice ?? product.price) * item.quantity;
       }
 
-      const tax = subtotal * 0.08;
-      const shipping = subtotal > 250 ? 0 : 20;
-      const total = Number((subtotal + tax + shipping).toFixed(2));
-      const amountPaise = Math.round(total * 100);
+      // Re-validate the coupon server-side; never trust a discount from the browser.
+      let coupon: PricingCoupon | null = null;
+      let appliedCode: string | null = null;
+      if (couponCode) {
+        const [couponRows] = await connection.execute<CouponRow[]>(
+          `SELECT code, discount_type AS discountType, CAST(discount_value AS DOUBLE) AS discountValue,
+                  CAST(min_order_amount AS DOUBLE) AS minOrderAmount, expiry_date AS expiryDate, active
+           FROM coupons WHERE code = ? LIMIT 1`,
+          [couponCode]
+        );
+        const row = couponRows[0];
+        // Silently drop an invalid/expired/min-not-met coupon rather than fail the
+        // whole order; the charged total simply reflects no discount.
+        if (
+          row &&
+          row.active &&
+          new Date(row.expiryDate) >= new Date() &&
+          subtotal >= row.minOrderAmount
+        ) {
+          coupon = {
+            discountType: row.discountType,
+            discountValue: row.discountValue,
+            minOrderAmount: row.minOrderAmount,
+          };
+          appliedCode = row.code;
+        }
+      }
+
+      const totals = computeTotals(subtotal, coupon);
+      const amountPaise = Math.round(totals.total * 100);
 
       await connection.execute(
         `INSERT INTO orders (
           id, user_id, total_amount, status, payment_status, shipping_address,
-          billing_address, tax_amount, shipping_amount, tracking_number
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          billing_address, coupon_code, discount_amount, tax_amount, shipping_amount, tracking_number
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           internalOrderId,
           user.id,
-          total,
+          totals.total,
           'PENDING',
           'PENDING',
           shippingAddress,
           shippingAddress,
-          tax,
-          shipping,
+          appliedCode,
+          totals.discount,
+          totals.tax,
+          totals.shipping,
           generateTrackingNumber(),
         ]
       );
@@ -157,7 +178,7 @@ export async function POST(request: Request) {
       await connection.execute<ResultSetHeader>(
         `INSERT INTO payments (id, order_id, payment_method, status, amount, idempotency_key)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [crypto.randomUUID(), internalOrderId, 'RAZORPAY', 'PENDING', total, idempotencyKey]
+        [crypto.randomUUID(), internalOrderId, 'RAZORPAY', 'PENDING', totals.total, idempotencyKey]
       );
 
       const razorpayOrder = await createRazorpayOrder({

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/lib/store';
-import { ShoppingCart, Heart, ShieldCheck, Sparkles, ArrowRight, Award } from 'lucide-react';
+import { ShoppingCart, Heart, ShieldCheck, Sparkles, ArrowRight, Award, Star } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -20,6 +20,8 @@ interface Product {
   categoryName: string;
   stock: number;
   tags: string[];
+  rating?: number;
+  reviewCount?: number;
 }
 
 function toCartItem(product: Product) {
@@ -68,6 +70,10 @@ export default function HomePage() {
       .catch((err) => console.error('Failed to load page data:', err))
       .finally(() => setLoading(false));
   }, []);
+
+  const categories = ['all', ...Array.from(new Set(products.map((p) => p.categoryId)))];
+  const categoryLabel = (id: string) =>
+    id === 'all' ? 'All Styles' : products.find((p) => p.categoryId === id)?.categoryName || id;
 
   const filteredProducts = products.filter((p) => {
     if (filter === 'all') return true;
@@ -210,7 +216,7 @@ export default function HomePage() {
 
             {/* Filter Pills */}
             <div className="flex flex-wrap gap-2">
-              {['all', 'bharni', 'kachni'].map((style) => (
+              {categories.map((style) => (
                 <button
                   key={style}
                   onClick={() => setFilter(style)}
@@ -220,7 +226,7 @@ export default function HomePage() {
                       : 'border border-border hover:bg-foreground/5 text-foreground/75'
                   }`}
                 >
-                  {style === 'all' ? 'All Styles' : `${style} Style`}
+                  {categoryLabel(style)}
                 </button>
               ))}
             </div>
@@ -251,14 +257,14 @@ export default function HomePage() {
                     >
                       {/* Image Frame */}
                       <div className="relative aspect-[4/3] w-full overflow-hidden bg-linen-light dark:bg-linen-dark border-b border-border p-4">
-                        <div className="madhubani-border relative w-full h-full rounded-md overflow-hidden bg-card">
+                        <Link href={`/gallery/${product.slug}`} className="madhubani-border relative block w-full h-full rounded-md overflow-hidden bg-card" aria-label={`View ${product.title}`}>
                           <Image
                             src={product.featuredImage}
                             alt={product.title}
                             fill
                             className="object-cover hover:scale-105 transition-transform duration-500"
                           />
-                        </div>
+                        </Link>
 
                         {/* Category Tag */}
                         <span className="absolute top-8 left-8 z-10 px-3 py-1 bg-foreground text-background text-[10px] font-sans font-bold uppercase tracking-wider rounded-md">
@@ -297,7 +303,9 @@ export default function HomePage() {
                         <div>
                           <div className="flex justify-between items-start gap-4">
                             <h3 className="font-serif text-2xl font-bold tracking-wide text-foreground">
-                              {product.title}
+                              <Link href={`/gallery/${product.slug}`} className="hover:text-accent transition-colors">
+                                {product.title}
+                              </Link>
                             </h3>
                             <div className="flex flex-col items-end">
                               {product.salePrice ? (
@@ -319,6 +327,13 @@ export default function HomePage() {
                           <p className="font-sans text-sm text-foreground/75 mt-3 leading-relaxed">
                             {product.shortDescription}
                           </p>
+                          {(product.reviewCount ?? 0) > 0 && (
+                            <div className="flex items-center gap-1 mt-2">
+                              <Star className="h-4 w-4 fill-madhubani-mustard text-madhubani-mustard" />
+                              <span className="text-sm font-semibold text-foreground/70">{product.rating?.toFixed(1)}</span>
+                              <span className="text-xs text-foreground/45">({product.reviewCount})</span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Actions */}

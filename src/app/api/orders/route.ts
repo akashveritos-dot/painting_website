@@ -106,6 +106,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Order id and status are required' }, { status: 400 });
     }
 
+    const allowedStatuses = ['PENDING', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+    if (!allowedStatuses.includes(body.status)) {
+      return NextResponse.json({ error: 'Invalid order status' }, { status: 400 });
+    }
+
     await dbQuery('UPDATE orders SET status = ? WHERE id = ?', [body.status, body.id]);
     return NextResponse.json({ ok: true });
   } catch (error) {

@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAppStore } from '@/lib/store';
-import { 
+import { computeTotals } from '@/lib/pricing';
+import {
   ArrowLeft, 
   ArrowRight,
   ShieldCheck, 
@@ -13,7 +14,7 @@ import {
   Award, 
   Printer 
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 declare global {
   interface Window {
@@ -79,7 +80,8 @@ function loadRazorpayScript() {
 }
 
 export default function CheckoutPage() {
-  const { user, cart, clearCart } = useAppStore();
+  const { user, cart, clearCart, coupon, setCoupon } = useAppStore();
+  const reduceMotion = useReducedMotion();
   const [savedAddresses, setSavedAddresses] = useState<Array<{
     id: string;
     fullName: string;
@@ -114,14 +116,12 @@ export default function CheckoutPage() {
       .catch((error) => console.error('Failed to load saved addresses:', error));
   }, []);
 
-  // Calculations
+  // Calculations — same source of truth as the cart and the server charge.
   const subtotal = cart.reduce((acc, item) => {
     const price = item.salePrice ?? item.price;
     return acc + price * item.quantity;
   }, 0);
-  const tax = subtotal * 0.08;
-  const shipping = subtotal > 25000 ? 0.00 : 2000.00;
-  const total = subtotal + tax + shipping;
+  const { discount, tax, shipping, total } = computeTotals(subtotal, coupon);
 
   const applySavedAddress = (addressId: string) => {
     setSelectedAddressId(addressId);
@@ -179,6 +179,7 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           address: addressPayload,
           items: cart,
+          couponCode: coupon?.code,
           idempotencyKey: getCheckoutIdempotencyKey(),
         }),
       });
@@ -220,6 +221,7 @@ export default function CheckoutPage() {
             setGeneratedTracking('Tracking will be assigned after fulfillment review');
             setCheckoutStep('success');
             clearCart();
+            setCoupon(null);
             clearCheckoutIdempotencyKey();
           } catch (error) {
             setPaymentError(error instanceof Error ? error.message : 'Payment verification failed');
@@ -257,9 +259,28 @@ export default function CheckoutPage() {
         >
           <div className="absolute inset-2 border border-foreground/5 rounded-xl pointer-events-none" />
 
-          {/* Success Indicator */}
-          <div className="flex justify-center mb-6">
-            <CheckCircle2 className="h-16 w-16 text-madhubani-forest" />
+          {/* Success Indicator — Madhubani stamp-seal press */}
+          <div className="relative flex justify-center mb-6">
+            {/* Ink-impact ring radiating from the seal */}
+            {!reduceMotion && (
+              <motion.span
+                initial={{ opacity: 0.5, scale: 0.5 }}
+                animate={{ opacity: 0, scale: 2 }}
+                transition={{ duration: 0.9, delay: 0.15, ease: 'easeOut' }}
+                className="absolute top-1/2 left-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-madhubani-forest"
+              />
+            )}
+            <motion.div
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.7, rotate: -14 }}
+              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, rotate: 0 }}
+              transition={reduceMotion ? { duration: 0.2 } : { type: 'spring', stiffness: 260, damping: 13, delay: 0.1 }}
+              className="relative flex h-24 w-24 items-center justify-center"
+            >
+              {/* Double seal ring — the Madhubani signature border */}
+              <span className="absolute inset-0 rounded-full border-2 border-madhubani-forest/40" />
+              <span className="absolute inset-2 rounded-full border border-madhubani-forest/25" />
+              <CheckCircle2 className="h-12 w-12 text-madhubani-forest" />
+            </motion.div>
           </div>
 
           <span className="font-sans text-xs font-bold uppercase tracking-widest text-madhubani-forest mb-2 block">
@@ -308,10 +329,10 @@ export default function CheckoutPage() {
               <Printer className="h-4 w-4" /> Print Invoice
             </button>
             <Link
-              href="/orders"
+              href={generatedOrderId ? `/orders/${generatedOrderId}` : '/orders'}
               className="clickable flex items-center justify-center gap-1.5 px-6 py-3 bg-madhubani-terracotta dark:bg-madhubani-mustard text-white dark:text-madhubani-soot rounded-lg text-xs font-bold font-serif uppercase tracking-wider shadow-md hover:opacity-90 transition-opacity"
             >
-              View My Orders <ArrowRight className="h-4 w-4" />
+              Track Order <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
 
@@ -495,19 +516,6 @@ export default function CheckoutPage() {
               Payment opens in Razorpay Checkout. UPI, cards, wallets, and netbanking are handled by Razorpay; this website never stores card details.
             </p>
           </div>
-
-          {/* Payment Form */}
-          <div className="glass-panel p-6 md:p-8 rounded-xl border relative">
-            <div className="absolute inset-2 border border-foreground/5 rounded-lg pointer-events-none" />
-
-            <h3 className="font-serif text-xl font-bold text-foreground border-b border-border pb-4 mb-6 flex items-center gap-2 relative z-10">
-              <CreditCard className="h-5 w-5 text-accent" /> Razorpay Secure Payment
-            </h3>
-
-            <p className="relative z-10 text-sm text-foreground/65 leading-relaxed">
-              Payment opens in Razorpay Checkout. UPI, cards, wallets, and netbanking are handled by Razorpay; this website never stores card details.
-            </p>
-          </div>
         </div>
 
         {/* Right Summary panel */}
@@ -545,6 +553,12 @@ export default function CheckoutPage() {
                 <span>Subtotal</span>
                 <span>₹{subtotal.toLocaleString('en-IN')}</span>
               </div>
+              {coupon && discount > 0 && (
+                <div className="flex justify-between text-madhubani-forest font-semibold">
+                  <span>Coupon ({coupon.code})</span>
+                  <span>-₹{discount.toLocaleString('en-IN')}</span>
+                </div>
+              )}
               <div className="flex justify-between text-foreground/85">
                 <span>Estimated Tax (8%)</span>
                 <span>₹{tax.toLocaleString('en-IN')}</span>

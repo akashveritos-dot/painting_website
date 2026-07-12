@@ -14,25 +14,6 @@ interface AddressRow {
   isDefault: number | boolean;
 }
 
-async function ensureSavedAddressesTable() {
-  await dbQuery(`
-    CREATE TABLE IF NOT EXISTS saved_addresses (
-      id VARCHAR(36) PRIMARY KEY,
-      user_id VARCHAR(36) NOT NULL,
-      full_name VARCHAR(255) NOT NULL,
-      email VARCHAR(255) NOT NULL,
-      address TEXT NOT NULL,
-      city VARCHAR(120) NOT NULL,
-      state VARCHAR(120) NOT NULL,
-      zip VARCHAR(30) NOT NULL,
-      is_default BOOLEAN DEFAULT TRUE,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      INDEX idx_saved_address_user (user_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-}
-
 export async function GET() {
   const user = await getSessionUser();
   if (!user) {
@@ -40,7 +21,6 @@ export async function GET() {
   }
 
   try {
-    await ensureSavedAddressesTable();
     const rows = await dbQuery<AddressRow[]>(
       `SELECT id, user_id AS userId, full_name AS fullName, email, address, city, state, zip, is_default AS isDefault
        FROM saved_addresses
@@ -66,13 +46,29 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    await ensureSavedAddressesTable();
+
+    if (!body.fullName || !body.email || !body.address || !body.city || !body.state || !body.zip) {
+      return NextResponse.json({ error: 'All address fields are required' }, { status: 400 });
+    }
+
+    // Only reuse a client-supplied id if it belongs to this user; otherwise a caller
+    // could overwrite another user's saved address (the PK is the id, not the user).
+    let id = crypto.randomUUID();
+    if (body.id) {
+      const owner = await dbQuery<Array<{ user_id: string }>>(
+        'SELECT user_id FROM saved_addresses WHERE id = ? LIMIT 1',
+        [body.id]
+      );
+      if (owner.length > 0 && owner[0].user_id !== user.id) {
+        return NextResponse.json({ error: 'Address not found' }, { status: 404 });
+      }
+      id = body.id;
+    }
 
     if (body.isDefault !== false) {
       await dbQuery('UPDATE saved_addresses SET is_default = ? WHERE user_id = ?', [0, user.id]);
     }
 
-    const id = body.id || crypto.randomUUID();
     await dbQuery(
       `INSERT INTO saved_addresses (id, user_id, full_name, email, address, city, state, zip, is_default)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -101,5 +97,27 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Address save failed:', error);
     return NextResponse.json({ error: 'Failed to save address' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Please sign in' }, { status: 401 });
+  }
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ error: 'Address id is required' }, { status: 400 });
+    }
+
+    // Scoped to user_id so a caller can only delete their own address.
+    await dbQuery('DELETE FROM saved_addresses WHERE id = ? AND user_id = ?', [id, user.id]);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('Address delete failed:', error);
+    return NextResponse.json({ error: 'Failed to delete address' }, { status: 500 });
   }
 }

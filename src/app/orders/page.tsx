@@ -236,13 +236,22 @@ export default function OrdersPage() {
                     <Truck className="h-3.5 w-3.5" />
                     {order.trackingNumber || 'Tracking pending'}
                   </p>
-                  <button
-                    onClick={() => downloadReceipt(order)}
-                    className="clickable mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-bold hover:bg-foreground/5"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    Download Receipt
-                  </button>
+                  <div className="mt-3 flex flex-wrap gap-2 md:justify-end">
+                    <Link
+                      href={`/orders/${order.id}`}
+                      className="clickable inline-flex items-center gap-1.5 rounded-lg bg-madhubani-terracotta dark:bg-madhubani-mustard px-3 py-2 text-xs font-bold text-white dark:text-madhubani-soot hover:opacity-90"
+                    >
+                      <Truck className="h-3.5 w-3.5" />
+                      Track Order
+                    </Link>
+                    <button
+                      onClick={() => downloadReceipt(order)}
+                      className="clickable inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-bold hover:bg-foreground/5"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download Receipt
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">

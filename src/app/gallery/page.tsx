@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '@/lib/store';
-import { Search, SlidersHorizontal, Heart, ShoppingCart } from 'lucide-react';
+import { Search, SlidersHorizontal, Heart, ShoppingCart, Star } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -15,10 +15,16 @@ interface Product {
   shortDescription: string;
   price: number;
   salePrice: number | null;
+  discount: number;
   featuredImage: string;
   categoryId: string;
   categoryName: string;
   stock: number;
+  featured?: boolean;
+  newArrival?: boolean;
+  bestSeller?: boolean;
+  rating?: number;
+  reviewCount?: number;
 }
 
 function toCartItem(product: Product) {
@@ -60,6 +66,9 @@ function GalleryContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(catParam);
   const [sortBy, setSortBy] = useState('featured');
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [saleOnly, setSaleOnly] = useState(false);
+  const [maxPrice, setMaxPrice] = useState('');
 
   const { addToCart, addToWishlist, wishlist } = useAppStore();
 
@@ -79,13 +88,34 @@ function GalleryContent() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Categories derived from the actual catalog, not a hardcoded list — picks up
+  // godna and any admin-created category automatically.
+  const categories = ['all', ...Array.from(new Set(products.map((p) => p.categoryId)))];
+  const categoryLabel = (id: string) =>
+    id === 'all' ? 'All Styles' : products.find((p) => p.categoryId === id)?.categoryName || id;
+
+  const priceCeiling = Number(maxPrice) || Infinity;
+  const hasActiveFilters =
+    !!searchQuery || selectedCategory !== 'all' || inStockOnly || saleOnly || !!maxPrice;
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('all');
+    setInStockOnly(false);
+    setSaleOnly(false);
+    setMaxPrice('');
+  };
+
   // Filter and sort items
   const processedProducts = products
     .filter((p) => {
-      const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            p.shortDescription.toLowerCase().includes(searchQuery.toLowerCase());
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = p.title.toLowerCase().includes(q) || p.shortDescription.toLowerCase().includes(q);
       const matchesCategory = selectedCategory === 'all' || p.categoryId === selectedCategory;
-      return matchesSearch && matchesCategory;
+      const matchesStock = !inStockOnly || p.stock > 0;
+      const matchesSale = !saleOnly || p.salePrice != null;
+      const matchesPrice = (p.salePrice ?? p.price) <= priceCeiling;
+      return matchesSearch && matchesCategory && matchesStock && matchesSale && matchesPrice;
     })
     .sort((a, b) => {
       const priceA = a.salePrice ?? a.price;
@@ -93,7 +123,9 @@ function GalleryContent() {
 
       if (sortBy === 'price-low') return priceA - priceB;
       if (sortBy === 'price-high') return priceB - priceA;
-      return 0; // Default order
+      if (sortBy === 'newest') return Number(!!b.newArrival) - Number(!!a.newArrival);
+      if (sortBy === 'name') return a.title.localeCompare(b.title);
+      return Number(!!b.featured) - Number(!!a.featured); // featured first
     });
 
   return (
@@ -123,7 +155,7 @@ function GalleryContent() {
 
         {/* Category Filter */}
         <div className="flex flex-wrap gap-1.5 justify-center">
-          {['all', 'bharni', 'kachni'].map((style) => (
+          {categories.map((style) => (
             <button
               key={style}
               onClick={() => setSelectedCategory(style)}
@@ -133,7 +165,7 @@ function GalleryContent() {
                   : 'hover:bg-foreground/5 text-foreground/75'
               }`}
             >
-              {style === 'all' ? 'All Styles' : style}
+              {categoryLabel(style)}
             </button>
           ))}
         </div>
@@ -147,11 +179,44 @@ function GalleryContent() {
             className="border border-border bg-background/50 px-3 py-2 text-xs font-sans rounded-lg focus:outline-none focus:border-accent"
           >
             <option value="featured">Featured Collections</option>
+            <option value="newest">New Arrivals</option>
             <option value="price-low">Price: Low to High</option>
             <option value="price-high">Price: High to Low</option>
+            <option value="name">Name: A to Z</option>
           </select>
         </div>
 
+      </div>
+
+      {/* Secondary filter row */}
+      <div className="-mt-8 mb-12 flex flex-wrap items-center gap-x-6 gap-y-3 text-xs font-sans">
+        <label className="flex items-center gap-2 text-foreground/70 cursor-pointer">
+          <input type="checkbox" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} className="accent-madhubani-terracotta" />
+          In stock only
+        </label>
+        <label className="flex items-center gap-2 text-foreground/70 cursor-pointer">
+          <input type="checkbox" checked={saleOnly} onChange={(e) => setSaleOnly(e.target.checked)} className="accent-madhubani-terracotta" />
+          On sale
+        </label>
+        <label className="flex items-center gap-2 text-foreground/70">
+          Max price ₹
+          <input
+            type="number"
+            min="0"
+            value={maxPrice}
+            onChange={(e) => setMaxPrice(e.target.value)}
+            placeholder="Any"
+            className="w-24 border border-border bg-background/50 px-2 py-1.5 rounded-md focus:outline-none focus:border-accent"
+          />
+        </label>
+        <span className="text-foreground/50 font-semibold uppercase tracking-wider">
+          {processedProducts.length} {processedProducts.length === 1 ? 'painting' : 'paintings'}
+        </span>
+        {hasActiveFilters && (
+          <button onClick={clearFilters} className="clickable text-madhubani-terracotta hover:underline font-bold uppercase tracking-wide">
+            Clear all filters
+          </button>
+        )}
       </div>
 
       {/* Gallery Grid */}
@@ -165,10 +230,7 @@ function GalleryContent() {
         <div className="text-center py-20 border border-dashed border-border rounded-xl">
           <p className="font-sans text-sm text-foreground/50">No paintings match your current search queries.</p>
           <button
-            onClick={() => {
-              setSearchQuery('');
-              setSelectedCategory('all');
-            }}
+            onClick={clearFilters}
             className="mt-4 text-xs font-bold text-madhubani-terracotta hover:underline uppercase tracking-wide"
           >
             Clear Filters
@@ -209,12 +271,24 @@ function GalleryContent() {
                       {product.categoryName}
                     </span>
 
-                    {/* Blinking Sale Tag */}
-                    {product.salePrice && (
-                      <span className="absolute top-8 right-24 z-10 px-2.5 py-1 bg-madhubani-vermillion text-white text-[9px] font-sans font-bold uppercase tracking-wider rounded-md sale-tag-blink">
-                        SALE
-                      </span>
-                    )}
+                    {/* Status badges */}
+                    <div className="absolute top-8 right-24 z-10 flex flex-col items-end gap-1.5">
+                      {product.salePrice && (
+                        <span className="px-2.5 py-1 bg-madhubani-vermillion text-white text-[9px] font-sans font-bold uppercase tracking-wider rounded-md sale-tag-blink">
+                          {product.discount > 0 ? `${product.discount}% OFF` : 'SALE'}
+                        </span>
+                      )}
+                      {product.newArrival && (
+                        <span className="px-2.5 py-1 bg-madhubani-forest text-white text-[9px] font-sans font-bold uppercase tracking-wider rounded-md">
+                          NEW
+                        </span>
+                      )}
+                      {product.bestSeller && (
+                        <span className="px-2.5 py-1 bg-madhubani-mustard text-madhubani-soot text-[9px] font-sans font-bold uppercase tracking-wider rounded-md">
+                          BEST SELLER
+                        </span>
+                      )}
+                    </div>
 
                     {/* Wishlist toggle */}
                     <button
@@ -264,6 +338,13 @@ function GalleryContent() {
                       <p className="font-sans text-xs text-foreground/75 mt-3 leading-relaxed">
                         {product.shortDescription}
                       </p>
+                      {(product.reviewCount ?? 0) > 0 && (
+                        <div className="flex items-center gap-1 mt-2">
+                          <Star className="h-3.5 w-3.5 fill-madhubani-mustard text-madhubani-mustard" />
+                          <span className="text-xs font-semibold text-foreground/70">{product.rating?.toFixed(1)}</span>
+                          <span className="text-[10px] text-foreground/45">({product.reviewCount})</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Footer Actions */}

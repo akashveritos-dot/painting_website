@@ -2,7 +2,15 @@ import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import { dbQuery } from './db';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key-should-be-replaced-in-env';
+// Fail fast rather than fall back to a public default — a guessable secret means
+// anyone can forge a valid session (including an ADMIN one). Shared by the auth routes.
+export const JWT_SECRET = (() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT_SECRET must be set to at least 32 characters. Refusing to start with an insecure default.');
+  }
+  return secret;
+})();
 
 export interface SessionUser {
   id: string;

@@ -4,17 +4,16 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAppStore } from '@/lib/store';
+import { computeTotals } from '@/lib/pricing';
 import { Trash2, ShoppingBag, ArrowLeft, ArrowRight, Tag, Percent } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function CartPage() {
   const [mounted, setMounted] = useState(false);
-  const { cart, removeFromCart, updateCartQuantity, clearCart } = useAppStore();
+  const { cart, removeFromCart, updateCartQuantity, clearCart, coupon, setCoupon } = useAppStore();
 
   const [couponCode, setCouponCode] = useState('');
-  const [couponDiscount, setCouponDiscount] = useState(0); // percentage discount
   const [couponError, setCouponError] = useState<string | null>(null);
-  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -28,17 +27,18 @@ export default function CartPage() {
     );
   }
 
-  // Calculate pricing sums
+  // Calculate pricing sums (shared with checkout + server via computeTotals)
   const subtotal = cart.reduce((acc, item) => {
     const price = item.salePrice ?? item.price;
     return acc + price * item.quantity;
   }, 0);
 
-  const discountAmount = subtotal * (couponDiscount / 100);
-  const taxedSubtotal = subtotal - discountAmount;
-  const tax = taxedSubtotal * 0.08; // 8% tax rate
-  const shipping = subtotal > 0 && taxedSubtotal < 25000 ? 2000.00 : 0.00; // Free shipping over ₹25,000
-  const total = taxedSubtotal + tax + shipping;
+  const { discount: discountAmount, tax, shipping, total } = computeTotals(subtotal, coupon);
+  const appliedCoupon = coupon
+    ? `${coupon.code} (${coupon.discountType === 'PERCENTAGE'
+        ? `${coupon.discountValue}% OFF`
+        : `₹${coupon.discountValue.toLocaleString('en-IN')} OFF`})`
+    : null;
 
   const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,18 +59,12 @@ export default function CartPage() {
         const { discountType, discountValue, minOrderAmount } = data.coupon;
 
         if (subtotal < minOrderAmount) {
-          throw new Error(`This coupon requires a minimum purchase of ₹${minOrderAmount.toLocaleString('en-IN')}.`);
+          throw new Error(`This coupon requires a minimum purchase of ₹${Number(minOrderAmount).toLocaleString('en-IN')}.`);
         }
 
-        if (discountType === 'PERCENTAGE') {
-          setCouponDiscount(discountValue);
-          setAppliedCoupon(`${code} (${discountValue}% OFF)`);
-        } else {
-          // If it is FIXED discount: calculate percentage equivalent dynamically for subtotal
-          const percentageEquivalent = (discountValue / subtotal) * 100;
-          setCouponDiscount(percentageEquivalent);
-          setAppliedCoupon(`${code} (₹${discountValue.toLocaleString('en-IN')} OFF)`);
-        }
+        // Store the raw coupon; computeTotals derives the discount consistently
+        // everywhere, and the server re-validates it at payment time.
+        setCoupon({ code, discountType, discountValue: Number(discountValue), minOrderAmount: Number(minOrderAmount || 0) });
         setCouponCode('');
       } else {
         throw new Error('Invalid coupon code.');
@@ -81,8 +75,7 @@ export default function CartPage() {
   };
 
   const handleRemoveCoupon = () => {
-    setCouponDiscount(0);
-    setAppliedCoupon(null);
+    setCoupon(null);
   };
 
   if (cart.length === 0) {

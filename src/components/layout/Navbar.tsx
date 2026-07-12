@@ -20,10 +20,6 @@ import {
 
 export default function Navbar() {
   const pathname = usePathname();
-  if (pathname?.startsWith('/admin')) {
-    return null;
-  }
-
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -72,6 +68,12 @@ export default function Navbar() {
   // Prevent hydration mismatches
   const cartCount = mounted ? cart.reduce((acc, item) => acc + item.quantity, 0) : 0;
   const wishlistCount = mounted ? wishlist.length : 0;
+
+  // Admin has its own chrome — hide the storefront nav. Placed after all hooks so
+  // the hook order stays stable across route changes (Rules of Hooks).
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
 
   return (
     <header className="glass-panel sticky top-0 z-40 w-full border-b transition-all duration-300">

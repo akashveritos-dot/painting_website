@@ -275,6 +275,46 @@ body {
   }
 }
 
+/* Gold gradient text — used for hero headline accents */
+.text-gold-gradient {
+  background: linear-gradient(
+    100deg,
+    var(--color-madhubani-mustard),
+    var(--color-madhubani-terracotta) 55%,
+    var(--color-madhubani-vermillion)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Soft museum spotlight behind the hero */
+.museum-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 50% at 70% 30%, color-mix(in oklch, var(--color-madhubani-mustard) 16%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 20% 80%, color-mix(in oklch, var(--color-madhubani-terracotta) 12%, transparent), transparent 70%);
+}
+
+/* Pointer affordance for interactive elements */
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:active {
+  transform: scale(0.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clickable:active {
+    transform: none;
+  }
+}
+
 /* Blinking Pulsating Sale Tags */
 @keyframes sale-blink-pulse {
   0%, 100% { opacity: 1; transform: scale(1); }

@@ -48,6 +48,8 @@ interface ProductRow {
   newArrival: number | boolean;
   bestSeller: number | boolean;
   tags: string[] | string | null;
+  rating: number | null;
+  reviewCount: number;
 }
 
 function slugify(value: string) {
@@ -129,10 +131,13 @@ export async function GET(request: Request) {
           p.featured_image AS featuredImage, 
           c.slug AS categoryId, 
           c.name AS categoryName,
-          p.featured, p.new_arrival AS newArrival, 
-          p.best_seller AS bestSeller, p.tags
+          p.featured, p.new_arrival AS newArrival,
+          p.best_seller AS bestSeller, p.tags,
+          CAST(AVG(r.rating) AS DOUBLE) AS rating,
+          COUNT(r.id) AS reviewCount
         FROM products p
         JOIN categories c ON p.category_id = c.id
+        LEFT JOIN reviews r ON r.product_id = p.id
         WHERE p.status = 'PUBLISHED'
       `;
       const params: Array<string | number> = [];
@@ -150,15 +155,19 @@ export async function GET(request: Request) {
         params.push(1);
       }
 
+      queryStr += ' GROUP BY p.id';
+
       products = await dbQuery(queryStr, params);
-      
-      // Parse JSON tags
+
+      // Parse JSON tags and normalize the rating aggregate
       products = products.map(p => ({
         ...p,
         featured: !!p.featured,
         newArrival: !!p.newArrival,
         bestSeller: !!p.bestSeller,
-        tags: p.tags ? (typeof p.tags === 'string' ? JSON.parse(p.tags) : p.tags) : []
+        tags: p.tags ? (typeof p.tags === 'string' ? JSON.parse(p.tags) : p.tags) : [],
+        rating: p.rating ? Number(p.rating) : 0,
+        reviewCount: Number(p.reviewCount) || 0,
       }));
 
     } catch (dbError) {
@@ -167,9 +176,22 @@ export async function GET(request: Request) {
     }
 
     if (slug) {
-      return products[0]
-        ? NextResponse.json({ product: products[0] })
-        : NextResponse.json({ error: 'Product not found' }, { status: 404 });
+      if (!products[0]) {
+        return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+      }
+      // Attach the gallery images (featured first, then the product_images rows).
+      let gallery: string[] = [];
+      try {
+        const imageRows = await dbQuery<Array<{ url: string }>>(
+          'SELECT url FROM product_images WHERE product_id = ? ORDER BY created_at ASC',
+          [products[0].id]
+        );
+        gallery = imageRows.map((row) => row.url);
+      } catch (imageError) {
+        console.warn('Product images query failed:', imageError);
+      }
+      const images = [products[0].featuredImage, ...gallery.filter((url) => url && url !== products[0].featuredImage)];
+      return NextResponse.json({ product: { ...products[0], images } });
     }
 
     return NextResponse.json({ products });

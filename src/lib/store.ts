@@ -26,10 +26,18 @@ export interface WishlistItem {
   featuredImage: string;
 }
 
+export interface AppliedCoupon {
+  code: string;
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discountValue: number;
+  minOrderAmount: number;
+}
+
 interface AppState {
   user: User | null;
   cart: CartItem[];
   wishlist: WishlistItem[];
+  coupon: AppliedCoupon | null;
   setUser: (user: User | null) => void;
   setCart: (cart: CartItem[]) => void;
   addToCart: (item: Omit<CartItem, 'quantity'>, qty?: number) => void;
@@ -40,6 +48,7 @@ interface AppState {
   addToWishlist: (item: WishlistItem) => void;
   removeFromWishlist: (productId: string) => void;
   clearWishlist: () => void;
+  setCoupon: (coupon: AppliedCoupon | null) => void;
   syncCartWithServer: () => Promise<void>;
   syncWishlistWithServer: () => Promise<void>;
 }
@@ -50,6 +59,7 @@ export const useAppStore = create<AppState>()(
       user: null,
       cart: [],
       wishlist: [],
+      coupon: null,
 
       setUser: (user) => {
         set({ user });
@@ -80,7 +90,7 @@ export const useAppStore = create<AppState>()(
         set({ cart: updatedCart });
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('heritage-feedback', {
-            detail: { type: 'cart', title: item.title },
+            detail: { type: 'cart', title: item.title, image: item.featuredImage },
           }));
         }
 
@@ -148,7 +158,7 @@ export const useAppStore = create<AppState>()(
         set({ wishlist: updatedWishlist });
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('heritage-feedback', {
-            detail: { type: 'wishlist', title: item.title },
+            detail: { type: 'wishlist', title: item.title, image: item.featuredImage },
           }));
         }
 
@@ -174,17 +184,60 @@ export const useAppStore = create<AppState>()(
 
       clearWishlist: () => set({ wishlist: [] }),
 
+      setCoupon: (coupon) => set({ coupon }),
+
+      // Merge the local (guest) cart with the server cart instead of overwriting.
+      // Runs on every session load (Navbar → /api/auth/me), so it must be
+      // idempotent: quantity = max(local, server) capped at stock. That keeps a
+      // plain refresh a no-op while still rescuing items added before sign-in.
+      // ponytail: max-merge — a deliberate qty reduction on another device loses
+      // to the higher local value; add last-write-wins timestamps if that matters.
       syncCartWithServer: async () => {
         if (!get().user) return;
         try {
-          // Fetch server cart
           const res = await fetch('/api/cart');
-          if (res.ok) {
-            const data = await res.json();
-            if (data.cartItems) {
-              set({ cart: data.cartItems });
+          if (!res.ok) return;
+          const data = await res.json();
+          const serverCart: CartItem[] = data.cartItems || [];
+          const local = get().cart;
+
+          const byId = new Map<string, CartItem>();
+          for (const item of serverCart) byId.set(item.productId, item);
+          for (const item of local) {
+            const server = byId.get(item.productId);
+            if (server) {
+              byId.set(item.productId, {
+                ...server,
+                quantity: Math.min(Math.max(server.quantity, item.quantity), server.stock),
+              });
+            } else {
+              byId.set(item.productId, item);
             }
           }
+          const merged = [...byId.values()];
+          set({ cart: merged });
+
+          // Persist only the rows that differ from the server so a refresh writes nothing.
+          await Promise.all(
+            merged.map((item) => {
+              const server = serverCart.find((s) => s.productId === item.productId);
+              if (!server) {
+                return fetch('/api/cart', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ productId: item.productId, quantity: item.quantity }),
+                }).catch(console.error);
+              }
+              if (server.quantity !== item.quantity) {
+                return fetch('/api/cart', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ productId: item.productId, quantity: item.quantity }),
+                }).catch(console.error);
+              }
+              return Promise.resolve();
+            })
+          );
         } catch (error) {
           console.error('Failed to sync cart with server:', error);
         }
@@ -194,12 +247,29 @@ export const useAppStore = create<AppState>()(
         if (!get().user) return;
         try {
           const res = await fetch('/api/wishlist');
-          if (res.ok) {
-            const data = await res.json();
-            if (data.wishlistItems) {
-              set({ wishlist: data.wishlistItems });
-            }
-          }
+          if (!res.ok) return;
+          const data = await res.json();
+          const serverWishlist: WishlistItem[] = data.wishlistItems || [];
+          const local = get().wishlist;
+
+          const byId = new Map<string, WishlistItem>();
+          for (const item of serverWishlist) byId.set(item.productId, item);
+          for (const item of local) if (!byId.has(item.productId)) byId.set(item.productId, item);
+          const merged = [...byId.values()];
+          set({ wishlist: merged });
+
+          // Push guest-only items up (POST is a no-op if already present).
+          await Promise.all(
+            merged
+              .filter((item) => !serverWishlist.some((s) => s.productId === item.productId))
+              .map((item) =>
+                fetch('/api/wishlist', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ productId: item.productId }),
+                }).catch(console.error)
+              )
+          );
         } catch (error) {
           console.error('Failed to sync wishlist with server:', error);
         }
@@ -207,7 +277,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'madhubani-art-storage',
-      partialize: (state) => ({ cart: state.cart, wishlist: state.wishlist }), // Only persist cart and wishlist
+      partialize: (state) => ({ cart: state.cart, wishlist: state.wishlist, coupon: state.coupon }),
     }
   )
 );
