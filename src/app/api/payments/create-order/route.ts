@@ -3,7 +3,7 @@ import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { getSessionUser } from '@/lib/auth-server';
 import { dbQuery, dbTransaction } from '@/lib/db';
 import { createRazorpayOrder } from '@/lib/razorpay';
-import { computeTotals, type PricingCoupon } from '@/lib/pricing';
+import { computeTotals, normalizePricingConfig, DEFAULT_PRICING_CONFIG, type PricingCoupon } from '@/lib/pricing';
 
 interface CartPayloadItem {
   productId: string;
@@ -41,6 +41,19 @@ function generateInternalOrderId() {
 
 function generateTrackingNumber() {
   return `MITHILA-SHIP-${Math.floor(10000000 + Math.random() * 90000000)}IN`;
+}
+
+// Load the admin-configured tax/shipping rules so the charge matches what the
+// storefront displays. Falls back to defaults if unset or unreadable.
+async function loadPricingConfig() {
+  try {
+    const rows = await dbQuery<Array<{ value: string }>>(
+      "SELECT setting_value AS value FROM website_settings WHERE setting_key = 'pricing_config' LIMIT 1"
+    );
+    return rows[0]?.value ? normalizePricingConfig(JSON.parse(rows[0].value)) : DEFAULT_PRICING_CONFIG;
+  } catch {
+    return DEFAULT_PRICING_CONFIG;
+  }
 }
 
 export async function POST(request: Request) {
@@ -81,6 +94,8 @@ export async function POST(request: Request) {
         },
       });
     }
+
+    const pricingConfig = await loadPricingConfig();
 
     const result = await dbTransaction(async (connection) => {
       const internalOrderId = generateInternalOrderId();
@@ -143,7 +158,7 @@ export async function POST(request: Request) {
         }
       }
 
-      const totals = computeTotals(subtotal, coupon);
+      const totals = computeTotals(subtotal, coupon, pricingConfig);
       const amountPaise = Math.round(totals.total * 100);
 
       await connection.execute(

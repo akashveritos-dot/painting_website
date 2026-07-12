@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAppStore } from '@/lib/store';
-import { computeTotals } from '@/lib/pricing';
+import { computeTotals, DEFAULT_PRICING_CONFIG } from '@/lib/pricing';
 import { Trash2, ShoppingBag, ArrowLeft, ArrowRight, Tag, Percent } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -14,9 +14,14 @@ export default function CartPage() {
 
   const [couponCode, setCouponCode] = useState('');
   const [couponError, setCouponError] = useState<string | null>(null);
+  const [config, setConfig] = useState(DEFAULT_PRICING_CONFIG);
 
   useEffect(() => {
     setMounted(true);
+    fetch('/api/pricing-config')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data?.config && setConfig(data.config))
+      .catch(() => {});
   }, []);
 
   if (!mounted) {
@@ -33,7 +38,7 @@ export default function CartPage() {
     return acc + price * item.quantity;
   }, 0);
 
-  const { discount: discountAmount, tax, shipping, total } = computeTotals(subtotal, coupon);
+  const { discount: discountAmount, tax, shipping, total } = computeTotals(subtotal, coupon, config);
   const appliedCoupon = coupon
     ? `${coupon.code} (${coupon.discountType === 'PERCENTAGE'
         ? `${coupon.discountValue}% OFF`
@@ -239,15 +244,19 @@ export default function CartPage() {
                 </div>
               )}
 
-              <div className="flex justify-between text-foreground/80">
-                <span>Estimated Tax (8%)</span>
-                <span>₹{tax.toLocaleString('en-IN')}</span>
-              </div>
+              {config.taxEnabled && (
+                <div className="flex justify-between text-foreground/80">
+                  <span>Estimated Tax ({config.taxRate}%)</span>
+                  <span>₹{tax.toLocaleString('en-IN')}</span>
+                </div>
+              )}
 
-              <div className="flex justify-between text-foreground/80">
-                <span>Shipping</span>
-                <span>{shipping === 0 ? 'FREE' : `₹${shipping.toLocaleString('en-IN')}`}</span>
-              </div>
+              {config.shippingEnabled && (
+                <div className="flex justify-between text-foreground/80">
+                  <span>Shipping</span>
+                  <span>{shipping === 0 ? 'FREE' : `₹${shipping.toLocaleString('en-IN')}`}</span>
+                </div>
+              )}
 
               <div className="border-t border-border pt-4 flex justify-between text-base font-bold text-foreground">
                 <span>Estimated Total</span>

@@ -3,16 +3,17 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAppStore } from '@/lib/store';
-import { computeTotals } from '@/lib/pricing';
+import { computeTotals, DEFAULT_PRICING_CONFIG } from '@/lib/pricing';
 import {
   ArrowLeft, 
   ArrowRight,
   ShieldCheck, 
   CreditCard, 
   Truck, 
-  CheckCircle2, 
-  Award, 
-  Printer 
+  CheckCircle2,
+  Award,
+  Printer,
+  Plus
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
@@ -90,8 +91,11 @@ export default function CheckoutPage() {
     city: string;
     state: string;
     zip: string;
+    isDefault?: boolean;
   }>>([]);
   const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [config, setConfig] = useState(DEFAULT_PRICING_CONFIG);
 
   // Form State
   const [name, setName] = useState('');
@@ -111,9 +115,32 @@ export default function CheckoutPage() {
     fetch('/api/addresses')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.addresses) setSavedAddresses(data.addresses);
+        if (data?.addresses?.length) {
+          setSavedAddresses(data.addresses);
+          // Pre-select the default (or first) address, like Amazon/Flipkart — a card
+          // is chosen and the form stays hidden until "Add New Address" is clicked.
+          const def = data.addresses.find((a: { isDefault?: boolean }) => a.isDefault) || data.addresses[0];
+          setSelectedAddressId(def.id);
+          setName(def.fullName);
+          setEmail(def.email);
+          setAddress(def.address);
+          setCity(def.city);
+          setState(def.state);
+          setZip(def.zip);
+          setShowNewForm(false);
+        } else {
+          setShowNewForm(true);
+        }
       })
-      .catch((error) => console.error('Failed to load saved addresses:', error));
+      .catch((error) => {
+        console.error('Failed to load saved addresses:', error);
+        setShowNewForm(true);
+      });
+
+    fetch('/api/pricing-config')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data?.config && setConfig(data.config))
+      .catch(() => {});
   }, []);
 
   // Calculations — same source of truth as the cart and the server charge.
@@ -121,10 +148,11 @@ export default function CheckoutPage() {
     const price = item.salePrice ?? item.price;
     return acc + price * item.quantity;
   }, 0);
-  const { discount, tax, shipping, total } = computeTotals(subtotal, coupon);
+  const { discount, tax, shipping, total } = computeTotals(subtotal, coupon, config);
 
   const applySavedAddress = (addressId: string) => {
     setSelectedAddressId(addressId);
+    setShowNewForm(false);
     const saved = savedAddresses.find((item) => item.id === addressId);
     if (!saved) return;
 
@@ -134,6 +162,17 @@ export default function CheckoutPage() {
     setCity(saved.city);
     setState(saved.state);
     setZip(saved.zip);
+  };
+
+  const startNewAddress = () => {
+    setSelectedAddressId('');
+    setShowNewForm(true);
+    setName('');
+    setEmail('');
+    setAddress('');
+    setCity('');
+    setState('');
+    setZip('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -405,25 +444,64 @@ export default function CheckoutPage() {
               <Truck className="h-5 w-5 text-accent" /> Shipping Destination
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-10 text-xs font-semibold uppercase tracking-wide font-sans">
-              {savedAddresses.length > 0 && (
-                <div className="space-y-2 col-span-1 md:col-span-2">
-                  <label htmlFor="saved-address" className="text-foreground/70">Use Saved Address</label>
-                  <select
-                    id="saved-address"
-                    value={selectedAddressId}
-                    onChange={(e) => applySavedAddress(e.target.value)}
-                    className="w-full border border-border bg-background/50 px-4 py-3 text-sm font-sans normal-case rounded-lg focus:outline-none focus:border-accent"
-                  >
-                    <option value="">Enter a new address</option>
-                    {savedAddresses.map((saved) => (
-                      <option key={saved.id} value={saved.id}>
-                        {saved.fullName} - {saved.city}, {saved.state}
-                      </option>
-                    ))}
-                  </select>
+            {/* Saved address picker — compact selectable cards (Amazon/Flipkart style) */}
+            {savedAddresses.length > 0 && (
+              <div className="relative z-10 space-y-3 mb-6">
+                <span className="block text-xs font-semibold uppercase tracking-wide text-foreground/70 font-sans">Deliver To</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {savedAddresses.map((saved) => {
+                    const active = selectedAddressId === saved.id && !showNewForm;
+                    return (
+                      <button
+                        type="button"
+                        key={saved.id}
+                        onClick={() => applySavedAddress(saved.id)}
+                        className={`clickable flex items-start gap-3 text-left rounded-xl border p-3.5 transition-all ${
+                          active ? 'border-accent bg-accent/5 shadow-sm' : 'border-border hover:border-foreground/30'
+                        }`}
+                      >
+                        {/* Radio indicator */}
+                        <span className={`mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 ${active ? 'border-accent' : 'border-foreground/30'}`}>
+                          {active && <span className="h-2 w-2 rounded-full bg-accent" />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="flex items-center gap-2">
+                            <span className="font-serif text-sm font-bold text-foreground normal-case truncate">{saved.fullName}</span>
+                            {saved.isDefault && (
+                              <span className="rounded bg-madhubani-forest/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-madhubani-forest">Default</span>
+                            )}
+                          </span>
+                          <span className="mt-1 block text-xs font-normal normal-case leading-relaxed text-foreground/60 font-sans">
+                            {saved.address}, {saved.city}, {saved.state} - {saved.zip}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
+                {!showNewForm ? (
+                  <button
+                    type="button"
+                    onClick={startNewAddress}
+                    className="clickable inline-flex items-center gap-1.5 rounded-lg border border-dashed border-border px-4 py-2.5 text-xs font-bold uppercase tracking-wider font-sans text-foreground/70 hover:border-accent hover:text-accent"
+                  >
+                    <Plus className="h-4 w-4" /> Add New Address
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => applySavedAddress(selectedAddressId || savedAddresses[0].id)}
+                    className="clickable inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider font-sans text-foreground/60 hover:text-foreground"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" /> Use a saved address
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* New-address form — hidden until "Add New Address", or shown when there are no saved addresses */}
+            {(showNewForm || savedAddresses.length === 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-10 text-xs font-semibold uppercase tracking-wide font-sans">
               <div className="space-y-2 col-span-1 md:col-span-2">
                 <label htmlFor="name" className="text-foreground/70">Patron Full Name</label>
                 <input
@@ -502,6 +580,7 @@ export default function CheckoutPage() {
                 />
               </div>
             </div>
+            )}
           </div>
 
           {/* Payment Form */}
@@ -559,14 +638,18 @@ export default function CheckoutPage() {
                   <span>-₹{discount.toLocaleString('en-IN')}</span>
                 </div>
               )}
-              <div className="flex justify-between text-foreground/85">
-                <span>Estimated Tax (8%)</span>
-                <span>₹{tax.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="flex justify-between text-foreground/85">
-                <span>Shipping Charges</span>
-                <span>{shipping === 0 ? 'FREE' : `₹${shipping.toLocaleString('en-IN')}`}</span>
-              </div>
+              {config.taxEnabled && (
+                <div className="flex justify-between text-foreground/85">
+                  <span>Estimated Tax ({config.taxRate}%)</span>
+                  <span>₹{tax.toLocaleString('en-IN')}</span>
+                </div>
+              )}
+              {config.shippingEnabled && (
+                <div className="flex justify-between text-foreground/85">
+                  <span>Shipping Charges</span>
+                  <span>{shipping === 0 ? 'FREE' : `₹${shipping.toLocaleString('en-IN')}`}</span>
+                </div>
+              )}
               <div className="border-t border-border pt-3.5 flex justify-between text-sm font-bold text-foreground">
                 <span>Acquisition Cost</span>
                 <span>₹{total.toLocaleString('en-IN')}</span>

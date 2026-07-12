@@ -4,21 +4,22 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
-import { 
-  LayoutDashboard, 
-  ShoppingBag, 
+import {
+  LayoutDashboard,
+  ShoppingBag,
   ArrowLeft,
   Truck,
   MessageSquare,
   Sliders,
-  Palette
+  Palette,
+  Percent
 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const setUser = useAppStore((state) => state.setUser);
-  
+
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [authorized, setAuthorized] = useState(false);
 
@@ -76,11 +77,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: '/admin/orders', name: 'Review Orders', icon: Truck },
     { href: '/admin/contacts', name: 'Contact Inbox', icon: MessageSquare },
     { href: '/admin/content', name: 'Page Content', icon: Sliders },
+    { href: '/admin/settings', name: 'Tax & Shipping', icon: Percent },
   ];
 
   return (
     <div className="mx-auto max-w-7xl w-full px-6 py-8 lg:py-16 grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-10 items-start">
-      
+
       {/* Sidebar Navigation */}
       <aside className="md:col-span-4 lg:col-span-3 md:sticky md:top-8 space-y-4 z-20">
         <div className="glass-panel p-5 rounded-xl border shadow-sm relative">
@@ -96,11 +98,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2.5 px-4 py-3 rounded-lg transition-all duration-300 transform ${
-                    active
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-lg transition-all duration-300 transform ${active
                       ? 'bg-madhubani-terracotta dark:bg-madhubani-mustard text-white dark:text-madhubani-soot font-bold shadow-md shadow-madhubani-terracotta/20 dark:shadow-madhubani-mustard/15 translate-x-1'
                       : 'hover:bg-foreground/5 text-foreground/75 hover:translate-x-1'
-                  }`}
+                    }`}
                 >
                   <Icon className="h-4.5 w-4.5" />
                   {item.name}
